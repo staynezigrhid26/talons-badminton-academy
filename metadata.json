@@ -1,0 +1,8 @@
+
+{
+  "name": "TALONS Dumaguete Badminton Academy",
+  "description": "Cloud-synced professional management portal for TALONS Dumaguete Badminton Academy using Supabase.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
