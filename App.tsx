@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Student, Coach, Tournament, UserState, Announcement, SkillLevel, HealthStatus, Officer, DailyPlan, TrainingSession, AttendanceRecord } from './types';
 import { INITIAL_STUDENTS, INITIAL_COACHES, MOCK_TOURNAMENTS, INITIAL_ANNOUNCEMENTS, INITIAL_OFFICERS, INITIAL_DAILY_PLANS, INITIAL_SESSIONS } from './constants';
-import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { supabase, isSupabaseConfigured, checkStorageConfig } from './supabaseClient';
 import StudentCard from './components/StudentCard';
 import StudentDetail from './components/StudentDetail';
 import CoachDetail from './components/CoachDetail';
@@ -74,12 +75,22 @@ const App: React.FC = () => {
     });
   }, [officers]);
 
-  // Initial Load with LocalStorage Priority
+  // Initial Load
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       const isConfigured = isSupabaseConfigured();
       setCloudEnabled(isConfigured);
+
+      // Perform Diagnostics
+      if (isConfigured) {
+        const diagnostic = await checkStorageConfig();
+        if (!diagnostic.ok) {
+          console.warn("CLOUD STATUS:", diagnostic.message);
+        } else {
+          console.log("CLOUD STATUS: Connection verified.");
+        }
+      }
 
       const loadKey = (key: string, defaultValue: any) => {
         const saved = localStorage.getItem(`talons_${key}`);
@@ -94,7 +105,6 @@ const App: React.FC = () => {
         return defaultValue;
       };
 
-      // Load all data with fallbacks to constants
       setStudents(loadKey('students', INITIAL_STUDENTS));
       setCoaches(loadKey('coaches', INITIAL_COACHES));
       setTournaments(loadKey('tournaments', MOCK_TOURNAMENTS));
@@ -113,7 +123,7 @@ const App: React.FC = () => {
     fetchData();
   }, []);
 
-  // Persistence Effect: Saves data whenever state changes
+  // Persistence Effect
   useEffect(() => {
     if (!loading) {
       localStorage.setItem('talons_students', JSON.stringify(students));
@@ -133,18 +143,20 @@ const App: React.FC = () => {
 
   const handleManualSync = async () => {
     if (!cloudEnabled) {
-      alert("Supabase is not configured. Sync skipped.");
+      alert("Supabase is not configured. Please check your environment variables.");
       return;
     }
     setIsSyncing(true);
     try {
-      // Logic for cloud syncing could go here (e.g. updating a central branding table)
-      // For now we simulate the process
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      alert("Cloud Sync Successful! Academy data is up to date.");
+      const diagnostic = await checkStorageConfig();
+      if (!diagnostic.ok) {
+        alert(`Cloud Issue: ${diagnostic.message}`);
+      } else {
+        alert("Cloud connection is active! All uploads will be synced to Supabase.");
+      }
     } catch (e) {
       console.error(e);
-      alert("Sync failed.");
+      alert("Sync check failed.");
     } finally {
       setIsSyncing(false);
     }
@@ -289,7 +301,7 @@ const App: React.FC = () => {
                             <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
                           </svg>
                         )}
-                        {isSyncing ? 'Syncing...' : 'Cloud Sync'}
+                        {isSyncing ? 'Testing...' : 'Check Cloud Health'}
                       </button>
                     </div>
                   )}
@@ -592,7 +604,7 @@ const App: React.FC = () => {
         <CoachModal onClose={() => setIsAddingCoach(false)} onSave={(c) => { setCoaches([...coaches, c]); setIsAddingCoach(false); }} />
       )}
       {selectedOfficer && (
-        <OfficerDetail officer={selectedOfficer} onClose={() => setSelectedOfficer(null)} canEdit={isCoach} onUpdate={(u) => setOfficers(prev => prev.map(o => o.id === u.id ? u : o))} />
+        <OfficerDetail officer={selectedOfficer} onClose={() => setSelectedOfficer(null)} canEdit={isCoach} onUpdate={(u) => setOfficers(prev => prev.map(o => o.id === u.id ? o : o))} />
       )}
       {isAddingOfficer && (
         <OfficerModal onClose={() => setIsAddingOfficer(false)} onSave={(o) => { setOfficers([...officers, o]); setIsAddingOfficer(false); }} />
