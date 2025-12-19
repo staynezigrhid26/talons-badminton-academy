@@ -2,25 +2,23 @@ import { createClient } from '@supabase/supabase-js';
 
 /**
  * SUPABASE CONFIGURATION:
- * These values are pulled from environment variables in Vercel.
+ * These values are injected by Vite during the build process on Vercel.
+ * Make sure to add SUPABASE_URL and SUPABASE_ANON_KEY to your Vercel Project Settings.
  */
 
-const supabaseUrl = (process.env.SUPABASE_URL || 'https://prxaquywrzeanigbavx.supabase.co').trim() as string;
-const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || 'sb_publishable_pwGJk9_0B5ZdzeKTqBamrA_2drrUT3m').trim() as string;
-
-// Debug helper for developers
-if (supabaseUrl.includes(' ') || supabaseAnonKey.includes(' ')) {
-  console.error('SUPABASE CONFIG ERROR: Your URL or Key contains spaces. Please check your Vercel Environment Variables.');
-}
+const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
+const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || '').trim();
 
 export const isSupabaseConfigured = () => {
   return (
     supabaseUrl !== '' && 
-    !supabaseUrl.includes('placeholder') &&
-    supabaseUrl.startsWith('https://')
+    supabaseUrl.startsWith('https://') &&
+    supabaseAnonKey !== ''
   );
 };
 
+// Initialize with a placeholder if not configured to prevent crashes, 
+// though we check isSupabaseConfigured() before critical actions.
 export const supabase = createClient(
   isSupabaseConfigured() ? supabaseUrl : 'https://placeholder.supabase.co',
   isSupabaseConfigured() ? supabaseAnonKey : 'placeholder'
@@ -28,25 +26,22 @@ export const supabase = createClient(
 
 /**
  * Diagnostic tool to check if the storage bucket is ready.
- * Run this to see if CORS or Permissions are the issue.
  */
 export const checkStorageConfig = async () => {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "Environment variables missing in Vercel settings." };
   
   try {
-    const { data, error } = await supabase.storage.getBucket('academy-assets');
+    const { data, error } = await supabase.storage.from('academy-assets').list('', { limit: 1 });
+    
     if (error) {
-      if (error.message.includes('not found')) {
-        return { ok: false, message: "BUCKET MISSING: Create a bucket named 'academy-assets' in Supabase Storage." };
+      if (error.message.toLowerCase().includes('not found')) {
+        return { ok: false, message: "Bucket 'academy-assets' not found in your Supabase project." };
       }
-      return { ok: false, message: `STORAGE ERROR: ${error.message}` };
+      return { ok: false, message: `Access Error: ${error.message}` };
     }
-    return { ok: true, message: "Storage is correctly configured and accessible!" };
+    return { ok: true, message: "Connected to Supabase Storage!" };
   } catch (e) {
-    if (e instanceof TypeError && e.message.includes('fetch')) {
-      return { ok: false, message: "CORS ERROR: Your browser is blocking the request. Update 'Allowed Origins' in Supabase." };
-    }
-    return { ok: false, message: "Unknown connection error." };
+    return { ok: false, message: "Network connection error. Check CORS settings in Supabase dashboard." };
   }
 };
 
@@ -55,7 +50,7 @@ export const checkStorageConfig = async () => {
  */
 export const uploadImage = async (fileBase64: string, folder: string, fileName: string) => {
   if (!isSupabaseConfigured()) {
-    console.warn('Supabase is not configured. Image will only be stored locally.');
+    console.warn('Supabase not configured. Using local storage only.');
     return null;
   }
 
@@ -71,10 +66,10 @@ export const uploadImage = async (fileBase64: string, folder: string, fileName: 
     const byteArray = new Uint8Array(byteNumbers);
     const blob = new Blob([byteArray], { type: 'image/png' });
 
-    const cleanFileName = fileName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const cleanFileName = (fileName || 'unnamed').replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const path = `${folder}/${cleanFileName}-${Date.now()}.png`;
     
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('academy-assets')
       .upload(path, blob, { 
         contentType: 'image/png', 
@@ -83,7 +78,7 @@ export const uploadImage = async (fileBase64: string, folder: string, fileName: 
       });
 
     if (error) {
-      console.error(`Upload failed: ${error.message}`);
+      console.warn('Cloud upload failed, falling back to local base64:', error.message);
       return null;
     }
 
@@ -93,11 +88,7 @@ export const uploadImage = async (fileBase64: string, folder: string, fileName: 
 
     return publicUrl;
   } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.error('CORS/Network Error detected during upload.');
-    } else {
-      console.error('Upload process failed:', error);
-    }
+    console.warn('Network error during upload. Using local fallback.');
     return null;
   }
 };

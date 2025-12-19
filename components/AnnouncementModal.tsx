@@ -6,9 +6,12 @@ interface AnnouncementModalProps {
   announcement: Partial<Announcement>;
   onClose: () => void;
   onSave: (ann: Announcement) => void;
+  onDelete?: (id: string) => void;
+  isCoach: boolean;
 }
 
-const AnnouncementModal: React.FC<AnnouncementModalProps> = ({ announcement, onClose, onSave }) => {
+const AnnouncementModal: React.FC<AnnouncementModalProps> = ({ announcement, onClose, onSave, onDelete, isCoach }) => {
+  const [isEditing, setIsEditing] = useState(!announcement.id);
   const [formData, setFormData] = useState<Partial<Announcement>>({
     id: announcement.id || `ann${Date.now()}`,
     title: announcement.title || '',
@@ -32,58 +35,55 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({ announcement, onC
         </button>
         
         <div className="mb-8">
-          <h3 className="text-2xl font-black text-slate-900">Manage News</h3>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">News & Announcements</p>
+          <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Academy News</h3>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Official Communications</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Headline</label>
-            <input 
-              required
-              className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-600 font-bold text-sm"
-              value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
-              placeholder="Latest news heading"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Content</label>
-            <textarea 
-              required
-              className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-600 font-bold text-sm h-32"
-              value={formData.content}
-              onChange={(e) => setFormData({...formData, content: e.target.value})}
-              placeholder="Describe the news in detail..."
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+        {isEditing ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Publish Date</label>
-              <input 
-                required
-                type="date"
-                className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-600 font-bold text-sm"
-                value={formData.date}
-                onChange={(e) => setFormData({...formData, date: e.target.value})}
-              />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Headline</label>
+              <input required className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-600 font-bold text-sm" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} placeholder="Title" />
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Author / Source</label>
-              <input 
-                required
-                className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-600 font-bold text-sm"
-                value={formData.author}
-                onChange={(e) => setFormData({...formData, author: e.target.value})}
-                placeholder="e.g. Coach Rick"
-              />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Content</label>
+              <textarea required className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-600 font-bold text-sm h-32 resize-none" value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} placeholder="Announcement text..." />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Date</label>
+                <input required type="date" className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-600 font-bold text-sm" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Source</label>
+                <input required className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-600 font-bold text-sm" value={formData.author} onChange={(e) => setFormData({...formData, author: e.target.value})} />
+              </div>
+            </div>
+            
+            <div className="flex gap-4 mt-6">
+              <button type="submit" className="flex-1 bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-blue-700 transition">
+                {announcement.id ? 'Update News' : 'Publish News'}
+              </button>
+              {announcement.id && isCoach && onDelete && (
+                <button type="button" onClick={() => { if(confirm("Remove this announcement?")) { onDelete(formData.id!); onClose(); } }} className="flex-1 bg-rose-50 text-rose-600 py-5 rounded-2xl font-black uppercase tracking-widest hover:bg-rose-100 transition">Delete</button>
+              )}
+            </div>
+          </form>
+        ) : (
+          <div className="space-y-6">
+             <div className="bg-slate-50 p-6 rounded-[32px] border">
+                <p className="text-[9px] font-black text-blue-600 uppercase mb-2">{formData.date} • {formData.author}</p>
+                <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">{formData.title}</h1>
+             </div>
+             <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{formData.content}</p>
+             {isCoach && (
+              <div className="grid grid-cols-2 gap-4">
+                <button onClick={() => setIsEditing(true)} className="bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest">Edit</button>
+                <button onClick={() => { if(confirm("Delete this announcement?")) { onDelete!(formData.id!); onClose(); } }} className="bg-rose-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest">Delete</button>
+              </div>
+             )}
           </div>
-          
-          <button type="submit" className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-900/30 active:scale-95 transition mt-4">
-            Publish News
-          </button>
-        </form>
+        )}
       </div>
     </div>
   );

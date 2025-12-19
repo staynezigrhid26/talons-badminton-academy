@@ -1,8 +1,7 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Student, Coach, Tournament, UserState, Announcement, SkillLevel, HealthStatus, Officer, DailyPlan, TrainingSession, AttendanceRecord } from './types';
 import { INITIAL_STUDENTS, INITIAL_COACHES, MOCK_TOURNAMENTS, INITIAL_ANNOUNCEMENTS, INITIAL_OFFICERS, INITIAL_DAILY_PLANS, INITIAL_SESSIONS } from './constants';
-import { supabase, isSupabaseConfigured, checkStorageConfig } from './supabaseClient';
+import { isSupabaseConfigured, checkStorageConfig } from './supabaseClient';
 import StudentCard from './components/StudentCard';
 import StudentDetail from './components/StudentDetail';
 import CoachDetail from './components/CoachDetail';
@@ -56,21 +55,14 @@ const App: React.FC = () => {
 
   // Officer Hierarchy Logic
   const OFFICER_RANK_MAP: Record<string, number> = {
-    'President': 1,
-    'Vice President': 2,
-    'Secretary': 3,
-    'Treasurer': 4,
-    'Auditor': 5,
-    'P.I.O.': 6,
-    'PIO': 6,
-    'Sgt. at Arms': 7,
-    'Sergeant at Arms': 7
+    'President': 1, 'Vice President': 2, 'Secretary': 3, 'Treasurer': 4,
+    'Auditor': 5, 'P.I.O.': 6, 'PIO': 6, 'Sgt. at Arms': 7, 'Sergeant at Arms': 7
   };
 
   const sortedOfficers = useMemo(() => {
     return [...officers].sort((a, b) => {
-      const rankA = OFFICER_RANK_MAP[a.role] || 99;
-      const rankB = OFFICER_RANK_MAP[b.role] || 99;
+      const rankA = OFFICER_RANK_MAP[a.role || ''] || 99;
+      const rankB = OFFICER_RANK_MAP[b.role || ''] || 99;
       return rankA - rankB;
     });
   }, [officers]);
@@ -82,25 +74,14 @@ const App: React.FC = () => {
       const isConfigured = isSupabaseConfigured();
       setCloudEnabled(isConfigured);
 
-      // Perform Diagnostics
-      if (isConfigured) {
-        const diagnostic = await checkStorageConfig();
-        if (!diagnostic.ok) {
-          console.warn("CLOUD STATUS:", diagnostic.message);
-        } else {
-          console.log("CLOUD STATUS: Connection verified.");
-        }
-      }
-
       const loadKey = (key: string, defaultValue: any) => {
-        const saved = localStorage.getItem(`talons_${key}`);
-        if (saved && saved !== 'undefined') {
-          try {
+        try {
+          const saved = localStorage.getItem(`talons_${key}`);
+          if (saved && saved !== 'undefined') {
             return JSON.parse(saved);
-          } catch (e) {
-            console.error(`Error parsing ${key}`, e);
-            return defaultValue;
           }
+        } catch (e) {
+          console.error(`Error loading key ${key}:`, e);
         }
         return defaultValue;
       };
@@ -134,28 +115,71 @@ const App: React.FC = () => {
       localStorage.setItem('talons_sessions', JSON.stringify(sessions));
       localStorage.setItem('talons_officers', JSON.stringify(officers));
       localStorage.setItem('talons_branding', JSON.stringify({
-        name: academyName,
-        logo: academyLogo,
-        banner: academyBanner
+        name: academyName, logo: academyLogo, banner: academyBanner
       }));
     }
   }, [students, coaches, tournaments, announcements, dailyPlans, sessions, officers, academyName, academyLogo, academyBanner, loading]);
 
+  const updateStudent = useCallback((updated: Student) => {
+    setStudents(prev => {
+      const index = prev.findIndex(s => s.id === updated.id);
+      if (index !== -1) {
+        const next = [...prev];
+        next[index] = updated;
+        return next;
+      } else {
+        return [updated, ...prev];
+      }
+    });
+    setSelectedStudent(null);
+  }, []);
+
+  const updateCoach = useCallback((updated: Coach) => {
+    setCoaches(prev => {
+      const index = prev.findIndex(c => c.id === updated.id);
+      if (index !== -1) {
+        const next = [...prev];
+        next[index] = updated;
+        return next;
+      } else {
+        return [updated, ...prev];
+      }
+    });
+    setSelectedCoach(null);
+  }, []);
+
+  const updateOfficer = useCallback((updated: Officer) => {
+    setOfficers(prev => {
+      const index = prev.findIndex(o => o.id === updated.id);
+      if (index !== -1) {
+        const next = [...prev];
+        next[index] = updated;
+        return next;
+      } else {
+        return [updated, ...prev];
+      }
+    });
+    setSelectedOfficer(null);
+  }, []);
+
+  const deleteTournament = useCallback((id: string) => {
+    setTournaments(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const deleteAnnouncement = useCallback((id: string) => {
+    setAnnouncements(prev => prev.filter(a => a.id !== id));
+  }, []);
+
   const handleManualSync = async () => {
     if (!cloudEnabled) {
-      alert("Supabase is not configured. Please check your environment variables.");
+      alert("Supabase is not configured.");
       return;
     }
     setIsSyncing(true);
     try {
       const diagnostic = await checkStorageConfig();
-      if (!diagnostic.ok) {
-        alert(`Cloud Issue: ${diagnostic.message}`);
-      } else {
-        alert("Cloud connection is active! All uploads will be synced to Supabase.");
-      }
+      alert(diagnostic.ok ? "Cloud connection is active!" : `Cloud Issue: ${diagnostic.message}`);
     } catch (e) {
-      console.error(e);
       alert("Sync check failed.");
     } finally {
       setIsSyncing(false);
@@ -176,26 +200,6 @@ const App: React.FC = () => {
     } else {
       setLoginError('Invalid credentials');
     }
-  };
-
-  const formatSessionDate = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-      const month = date.toLocaleDateString('en-US', { month: 'long' });
-      const dayNum = date.getDate();
-      const year = date.getFullYear();
-      return {
-        day: dayName,
-        full: `${month} ${dayNum}, ${year}`
-      };
-    } catch {
-      return { day: 'N/A', full: dateStr };
-    }
-  };
-
-  const updateStudent = (updated: Student) => {
-    setStudents(prev => prev.map(s => s.id === updated.id ? updated : s));
   };
 
   const handleToggleAttendance = (student: Student, date: string) => {
@@ -219,12 +223,11 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-24 md:pb-0 md:pl-64 bg-slate-50 selection:bg-blue-100">
-      {/* Desktop Sidebar */}
       <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-slate-900 text-white flex-col p-8 z-40 border-r border-white/5 shadow-2xl">
         <div className="mb-12">
           <div className="flex items-center gap-3">
             <div className={`w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black italic text-2xl shadow-lg shadow-blue-600/20 overflow-hidden ${academyLogo ? 'bg-white' : ''}`}>
-               {academyLogo ? <img src={academyLogo} className="w-full h-full object-cover" alt="Logo" /> : academyName.charAt(0)}
+               {academyLogo ? <img src={academyLogo} className="w-full h-full object-cover" alt="Logo" /> : (academyName ? academyName.charAt(0) : 'T')}
             </div>
             <div className="flex-1 overflow-hidden">
               <h1 className="text-sm font-black tracking-tighter leading-none truncate uppercase">{academyName}</h1>
@@ -275,7 +278,6 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className="p-6 md:p-12 max-w-6xl mx-auto min-h-screen">
         {activeTab === 'dashboard' && (
           <div className="space-y-10 animate-in fade-in duration-500">
@@ -286,22 +288,10 @@ const App: React.FC = () => {
                 <div className="relative z-10">
                   <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-none mb-4 uppercase italic">{academyName}</h1>
                   <p className="text-blue-400 font-black text-xs md:text-sm uppercase tracking-[0.4em] opacity-80">Elite Badminton Management System</p>
-                  
                   {isCoach && (
-                    <div className="mt-8 flex gap-3">
-                      <button 
-                        onClick={handleManualSync}
-                        disabled={isSyncing}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-900/40 flex items-center gap-2 transition-all active:scale-95"
-                      >
-                        {isSyncing ? (
-                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                        {isSyncing ? 'Testing...' : 'Check Cloud Health'}
+                    <div className="mt-8">
+                      <button onClick={handleManualSync} disabled={isSyncing} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-2 transition-all active:scale-95">
+                        {isSyncing ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : "Check Cloud Health"}
                       </button>
                     </div>
                   )}
@@ -309,20 +299,20 @@ const App: React.FC = () => {
              </div>
 
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <section className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                <section className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col">
                    <div className="flex justify-between items-center mb-8 px-2">
-                      <h2 className="text-2xl font-black tracking-tight">Active Tournaments</h2>
-                      {isCoach && <button onClick={() => setEditingTournament({})} className="bg-blue-600 text-white w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-200 hover:rotate-90 transition-all">+</button>}
+                      <h2 className="text-2xl font-black tracking-tight uppercase">Tournaments</h2>
+                      {isCoach && <button onClick={() => setEditingTournament({})} className="bg-blue-600 text-white w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg hover:rotate-90 transition-all">+</button>}
                    </div>
                    <div className="space-y-4">
-                      {tournaments.slice(0, 3).map(t => (
+                      {tournaments.map(t => (
                         <div key={t.id} onClick={() => setEditingTournament(t)} className="group p-5 bg-slate-50 rounded-3xl border border-slate-100 flex items-center gap-5 hover:border-blue-200 transition-all cursor-pointer">
                            <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex flex-col items-center justify-center shrink-0 border border-slate-100">
                               <p className="text-[10px] font-black uppercase text-blue-600 leading-none">{new Date(t.date).toLocaleString('default', { month: 'short' })}</p>
                               <p className="text-2xl font-black text-slate-900 leading-none mt-1">{new Date(t.date).getDate()}</p>
                            </div>
                            <div className="flex-1 overflow-hidden">
-                              <h3 className="font-black text-slate-800 tracking-tight text-lg leading-none">{t.name}</h3>
+                              <h3 className="font-black text-slate-800 tracking-tight text-lg leading-none truncate">{t.name}</h3>
                               <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mt-2">{t.location}</p>
                            </div>
                         </div>
@@ -330,14 +320,14 @@ const App: React.FC = () => {
                    </div>
                 </section>
                 
-                <section className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                <section className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col">
                    <div className="flex justify-between items-center mb-8 px-2">
-                      <h2 className="text-2xl font-black tracking-tight">Announcements</h2>
-                      {isCoach && <button onClick={() => setEditingAnnouncement({})} className="bg-blue-600 text-white w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-200 hover:rotate-90 transition-all">+</button>}
+                      <h2 className="text-2xl font-black tracking-tight uppercase">News</h2>
+                      {isCoach && <button onClick={() => setEditingAnnouncement({})} className="bg-blue-600 text-white w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg hover:rotate-90 transition-all">+</button>}
                    </div>
                    <div className="space-y-6">
                       {announcements.map(a => (
-                        <div key={a.id} className="pb-6 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 p-4 rounded-3xl transition-all cursor-pointer">
+                        <div key={a.id} onClick={() => setEditingAnnouncement(a)} className="pb-6 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 p-4 rounded-3xl transition-all cursor-pointer">
                            <p className="text-[9px] font-black text-blue-600 uppercase mb-2 bg-blue-50 px-3 py-1 rounded-full inline-block">{a.date}</p>
                            <h3 className="text-xl font-black text-slate-800 tracking-tight">{a.title}</h3>
                            <p className="text-sm text-slate-500 mt-2 font-medium line-clamp-2">{a.content}</p>
@@ -353,23 +343,41 @@ const App: React.FC = () => {
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
             <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
               <div>
-                <h2 className="text-5xl font-black tracking-tighter">Athlete Rosters</h2>
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Managing {students.length} active players</p>
+                <h2 className="text-5xl font-black tracking-tighter uppercase italic">Athletes</h2>
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Active Player Roster</p>
               </div>
               <div className="flex gap-4 w-full md:w-auto">
                 <input 
-                  type="text" placeholder="Search athletes..." 
-                  className="bg-white border-2 border-slate-100 px-6 py-4 rounded-3xl focus:border-blue-600 outline-none text-sm font-bold flex-1 md:w-64 shadow-sm transition-all"
+                  type="text" placeholder="Search..." 
+                  className="bg-white border-2 border-slate-100 px-6 py-4 rounded-3xl focus:border-blue-600 outline-none text-sm font-bold flex-1 md:w-64 shadow-sm"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
                 {isCoach && (
-                  <button onClick={() => setSelectedStudent({ id: `s${Date.now()}`, name: '', age: 0, birthday: '', profilePic: 'https://api.dicebear.com/7.x/avataaars/svg?seed=new', level: SkillLevel.BEGINNER, healthStatus: HealthStatus.FIT, attendance: [], notes: '' })} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all">Add Athlete</button>
+                  <button 
+                    onClick={() => setSelectedStudent({ 
+                      id: `s${Date.now()}`, 
+                      name: '', 
+                      age: 0, 
+                      birthday: '', 
+                      profilePic: 'https://api.dicebear.com/7.x/avataaars/svg?seed=new', 
+                      level: SkillLevel.BEGINNER, 
+                      healthStatus: HealthStatus.FIT, 
+                      attendance: [], 
+                      tournamentIds: [],
+                      notes: '' 
+                    })} 
+                    className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 active:scale-95 transition-all"
+                  >
+                    Add Athlete
+                  </button>
                 )}
               </div>
             </header>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               {students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())).map(s => <StudentCard key={s.id} student={s} onClick={() => setSelectedStudent(s)} />)}
+               {students.filter(s => (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())).map(s => (
+                 <StudentCard key={s.id} student={s} onClick={() => setSelectedStudent(s)} />
+               ))}
             </div>
           </div>
         )}
@@ -377,12 +385,9 @@ const App: React.FC = () => {
         {activeTab === 'coaches' && (
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
             <header className="flex justify-between items-end px-2">
-               <div>
-                  <h2 className="text-5xl font-black tracking-tighter">Coaching Staff</h2>
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Professional instruction and guidance</p>
-               </div>
+               <h2 className="text-5xl font-black tracking-tighter uppercase italic">Staff</h2>
                {isCoach && (
-                 <button onClick={() => setIsAddingCoach(true)} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all">New Staff</button>
+                 <button onClick={() => setIsAddingCoach(true)} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">New Staff</button>
                )}
             </header>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -399,144 +404,17 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'attendance' && (
-          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
-              <div>
-                <h2 className="text-5xl font-black tracking-tighter">Attendance</h2>
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Daily presence tracking</p>
-              </div>
-              <div className="flex items-center gap-3 bg-white p-3 rounded-3xl border border-slate-200 shadow-sm">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 pl-3">Date Filter:</span>
-                <input 
-                  type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)}
-                  className="bg-slate-50 px-4 py-2 rounded-2xl font-black text-xs border-0 focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-              </div>
-            </header>
-
-            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
-               <div className="overflow-x-auto">
-                 <table className="w-full text-left">
-                   <thead>
-                     <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-50">
-                       <th className="pb-6 pl-6">Athlete</th>
-                       <th className="pb-6">Level</th>
-                       <th className="pb-6 text-center">Status</th>
-                       <th className="pb-6 text-right pr-6">Action</th>
-                     </tr>
-                   </thead>
-                   <tbody className="divide-y divide-slate-50">
-                     {students.map(s => {
-                       const record = s.attendance.find(r => r.date === attendanceDate);
-                       return (
-                        <tr key={s.id} className="group hover:bg-slate-50/50 transition-colors">
-                          <td className="py-5 pl-6 font-black text-slate-800 flex items-center gap-4">
-                            <img src={s.profilePic} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" alt="" />
-                            {s.name}
-                          </td>
-                          <td className="py-5">
-                            <span className="text-[9px] font-black text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-md">{s.level}</span>
-                          </td>
-                          <td className="py-5 text-center">
-                             {record ? (
-                               <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${record.status === 'present' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                 {record.status}
-                               </span>
-                             ) : <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">N/A</span>}
-                          </td>
-                          <td className="py-5 text-right pr-6">
-                            {isCoach && (
-                              <button onClick={() => handleToggleAttendance(s, attendanceDate)} className={`p-3 rounded-2xl transition-all shadow-sm ${record?.status === 'present' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-emerald-100 hover:text-emerald-600'}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                       );
-                     })}
-                   </tbody>
-                 </table>
-               </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'schedule' && (
-          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-            <header className="flex justify-between items-end px-2">
-               <div>
-                  <h2 className="text-5xl font-black tracking-tighter">Training Calendar</h2>
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Upcoming drills and court sessions</p>
-               </div>
-               {isCoach && (
-                 <button onClick={() => setEditingSession({})} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all">Add Session</button>
-               )}
-            </header>
-            <div className="bg-white rounded-[40px] border border-slate-100 overflow-hidden shadow-sm">
-               <div className="overflow-x-auto">
-                 <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-100">
-                       <tr className="text-[10px] font-black uppercase text-slate-400">
-                          <th className="p-8">Training Date</th>
-                          <th className="p-8">Timing</th>
-                          <th className="p-8">Athlete Target</th>
-                          <th className="p-8">Focus Point</th>
-                          <th className="p-8 text-right">Type</th>
-                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                       {sessions.map(s => {
-                         const formatted = formatSessionDate(s.date);
-                         return (
-                          <tr key={s.id} onClick={() => isCoach && setEditingSession(s)} className="text-sm group hover:bg-slate-50/50 transition-colors cursor-pointer">
-                            <td className="p-8">
-                               <div className="flex flex-col">
-                                  <span className="text-[10px] font-black uppercase text-slate-400 leading-none mb-1">{formatted.day}</span>
-                                  <span className="font-black text-slate-900 text-base">{formatted.full}</span>
-                               </div>
-                            </td>
-                            <td className="p-8 text-slate-500 font-black text-xs whitespace-nowrap">{s.startTime} - {s.endTime}</td>
-                            <td className="p-8">
-                               <div className="flex flex-wrap gap-1 max-w-[200px]">
-                                  {s.targetLevels?.map(l => (
-                                    <span key={l} className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[8px] font-black uppercase tracking-widest">{l}</span>
-                                  ))}
-                               </div>
-                            </td>
-                            <td className="p-8">
-                               <p className="font-black text-slate-800 tracking-tight">{s.title}</p>
-                               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">{s.focus}</p>
-                            </td>
-                            <td className="p-8 text-right">
-                               <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider ${s.type === 'Tournament Prep' ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}`}>
-                                  {s.type}
-                               </span>
-                            </td>
-                          </tr>
-                         );
-                       })}
-                    </tbody>
-                 </table>
-               </div>
-            </div>
-          </div>
-        )}
-
         {activeTab === 'officers' && (
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
             <header className="flex justify-between items-end px-2">
-               <div>
-                  <h2 className="text-5xl font-black tracking-tighter">Leadership</h2>
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Academy board and council</p>
-               </div>
+               <h2 className="text-5xl font-black tracking-tighter uppercase italic">Board</h2>
                {isCoach && (
-                 <button onClick={() => setIsAddingOfficer(true)} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all">Add Officer</button>
+                 <button onClick={() => setIsAddingOfficer(true)} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">Add Officer</button>
                )}
             </header>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                {sortedOfficers.map(off => (
-                 <div key={off.id} onClick={() => setSelectedOfficer(off)} className="bg-white p-8 rounded-[40px] border border-slate-100 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group cursor-pointer">
+                 <div key={off.id} onClick={() => setSelectedOfficer(off)} className="bg-white p-8 rounded-[40px] border border-slate-100 text-center hover:shadow-2xl hover:-translate-y-2 transition-all group cursor-pointer">
                     <img src={off.profilePic} className="w-24 h-24 rounded-[32px] mx-auto object-cover border-4 border-slate-50 mb-6 group-hover:scale-110 transition duration-500" alt="" />
                     <h3 className="font-black text-slate-800 text-xl tracking-tight leading-none">{off.name}</h3>
                     <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-3 bg-blue-50 px-4 py-1.5 rounded-full inline-block border border-blue-100">{off.role}</p>
@@ -546,36 +424,104 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'plans' && isCoach && (
-          <div className="space-y-10 animate-in slide-in-from-bottom-8 duration-500">
-             <header className="flex justify-between items-end px-2">
-               <div>
-                  <h2 className="text-5xl font-black tracking-tighter">Drill Plans</h2>
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Instructional sequencing</p>
-               </div>
-               <button onClick={() => setEditingDailyPlan({})} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all">Create New Plan</button>
+        {activeTab === 'attendance' && (
+          <div className="space-y-8">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+              <h2 className="text-5xl font-black tracking-tighter uppercase italic">Attendance</h2>
+              <div className="flex items-center gap-3 bg-white p-3 rounded-3xl border border-slate-200">
+                <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} className="bg-slate-50 px-4 py-2 rounded-2xl font-black text-xs outline-none" />
+              </div>
             </header>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-               {dailyPlans.map(plan => (
-                 <div key={plan.id} onClick={() => setEditingDailyPlan(plan)} className="bg-white p-10 rounded-[48px] border border-slate-100 relative hover:border-blue-200 hover:shadow-2xl transition-all duration-500 cursor-pointer group">
-                    <div className="mb-6">
-                        <p className="text-[10px] font-black text-blue-600 uppercase mb-2 bg-blue-50 px-3 py-1 rounded-full inline-block">{plan.date}</p>
-                        <h3 className="text-2xl font-black text-slate-900 tracking-tighter italic uppercase group-hover:text-blue-600 transition">{plan.title}</h3>
-                    </div>
-                    <div className="space-y-3">
-                       {plan.exercises.map((ex, i) => (
-                         <div key={i} className="flex justify-between text-sm items-center py-2 border-b border-slate-50 last:border-0">
-                            <span className="font-bold text-slate-700 tracking-tight">• {ex.name}</span>
-                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{ex.duration}</span>
-                         </div>
-                       ))}
-                    </div>
-                 </div>
-               ))}
+            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm overflow-x-auto">
+               <table className="w-full text-left">
+                 <thead>
+                   <tr className="text-[10px] font-black uppercase text-slate-400 border-b">
+                     <th className="pb-6 pl-6">Athlete</th>
+                     <th className="pb-6">Level</th>
+                     <th className="pb-6 text-center">Status</th>
+                     <th className="pb-6 text-right pr-6">Action</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y">
+                   {students.map(s => {
+                     const record = s.attendance.find(r => r.date === attendanceDate);
+                     return (
+                      <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-5 pl-6 font-black text-slate-800 flex items-center gap-4">
+                          <img src={s.profilePic} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" alt="" />
+                          {s.name}
+                        </td>
+                        <td className="py-5"><span className="text-[9px] font-black text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-md">{s.level}</span></td>
+                        <td className="py-5 text-center">
+                           {record ? <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${record.status === 'present' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{record.status}</span> : <span className="text-[10px] font-black text-slate-300">N/A</span>}
+                        </td>
+                        <td className="py-5 text-right pr-6">
+                          {isCoach && (
+                            <button onClick={() => handleToggleAttendance(s, attendanceDate)} className={`p-3 rounded-2xl transition-all ${record?.status === 'present' ? 'bg-emerald-600 text-white shadow-emerald-200 shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                     );
+                   })}
+                 </tbody>
+               </table>
             </div>
           </div>
         )}
       </main>
+
+      {/* Detail Overlays */}
+      {selectedStudent && (
+        <StudentDetail 
+          student={selectedStudent} 
+          tournaments={tournaments} 
+          onClose={() => setSelectedStudent(null)} 
+          onUpdate={updateStudent} 
+          role={user.role} 
+          onDelete={(id) => { setStudents(prev => prev.filter(s => s.id !== id)); setSelectedStudent(null); }} 
+        />
+      )}
+      {selectedCoach && (
+        <CoachDetail 
+          coach={selectedCoach} 
+          canEdit={isCoach} 
+          onClose={() => setSelectedCoach(null)} 
+          onUpdate={updateCoach} 
+          onDelete={(id) => { setCoaches(prev => prev.filter(c => c.id !== id)); setSelectedCoach(null); }} 
+        />
+      )}
+      {isAddingCoach && (
+        <CoachModal onClose={() => setIsAddingCoach(false)} onSave={(c) => { updateCoach(c); setIsAddingCoach(false); }} />
+      )}
+      {selectedOfficer && (
+        <OfficerDetail 
+          officer={selectedOfficer} 
+          onClose={() => setSelectedOfficer(null)} 
+          canEdit={isCoach} 
+          onUpdate={updateOfficer} 
+          onDelete={(id) => { setOfficers(prev => prev.filter(o => o.id !== id)); setSelectedOfficer(null); }} 
+        />
+      )}
+      {isAddingOfficer && (
+        <OfficerModal onClose={() => setIsAddingOfficer(false)} onSave={(o) => { updateOfficer(o); setIsAddingOfficer(false); }} />
+      )}
+      {editingAnnouncement && (
+        <AnnouncementModal announcement={editingAnnouncement} onClose={() => setEditingAnnouncement(null)} onSave={(a) => { setAnnouncements(prev => [a, ...prev.filter(x => x.id !== a.id)]); setEditingAnnouncement(null); }} onDelete={deleteAnnouncement} isCoach={isCoach} />
+      )}
+      {editingTournament && (
+        <TournamentModal tournament={editingTournament} onClose={() => setEditingTournament(null)} isCoach={isCoach} onSave={(t) => { setTournaments(prev => [t, ...prev.filter(x => x.id !== t.id)]); setEditingTournament(null); }} onDelete={deleteTournament} />
+      )}
+      {editingDailyPlan && (
+        <DailyPlanModal plan={editingDailyPlan} onClose={() => setEditingDailyPlan(null)} onSave={(p) => { setDailyPlans(prev => [p, ...prev.filter(x => x.id !== p.id)]); setEditingDailyPlan(null); }} />
+      )}
+      {editingSession && (
+        <SessionModal session={editingSession} onClose={() => setEditingSession(null)} onSave={(s) => { setSessions(prev => [s, ...prev.filter(x => x.id !== s.id)]); setEditingSession(null); }} />
+      )}
+      {showBrandingModal && (
+        <BrandingModal currentName={academyName} currentLogo={academyLogo} currentBanner={academyBanner} onClose={() => setShowBrandingModal(false)} onSave={(n, l, b) => { setAcademyName(n); setAcademyLogo(l); setAcademyBanner(b); setShowBrandingModal(false); }} />
+      )}
 
       {/* Login Modal */}
       {showLoginModal && (
@@ -587,55 +533,17 @@ const App: React.FC = () => {
             <form onSubmit={handleLogin} className="space-y-5">
               <input name="email" type="email" placeholder="COACH EMAIL" required className="w-full bg-slate-50 border-2 border-slate-100 p-6 rounded-[32px] outline-none focus:border-blue-600 font-black text-sm uppercase" />
               <input name="password" type="password" placeholder="PASSWORD" required className="w-full bg-slate-50 border-2 border-slate-100 p-6 rounded-[32px] outline-none focus:border-blue-600 font-black text-sm uppercase" />
-              <button type="submit" className="w-full bg-blue-600 text-white py-6 rounded-[32px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-blue-900/20 text-xs mt-4 active:scale-95 transition-all">Authorize Profile</button>
+              <button type="submit" className="w-full bg-blue-600 text-white py-6 rounded-[32px] font-black uppercase tracking-[0.2em] shadow-2xl text-xs mt-4 active:scale-95 transition-all">Authorize Profile</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Detail Overlays */}
-      {selectedStudent && (
-        <StudentDetail student={selectedStudent} tournaments={tournaments} onClose={() => setSelectedStudent(null)} onUpdate={updateStudent} role={user.role} />
-      )}
-      {selectedCoach && (
-        <CoachDetail coach={selectedCoach} canEdit={isCoach} onClose={() => setSelectedCoach(null)} onUpdate={(u) => setCoaches(prev => prev.map(c => c.id === u.id ? u : c))} />
-      )}
-      {isAddingCoach && (
-        <CoachModal onClose={() => setIsAddingCoach(false)} onSave={(c) => { setCoaches([...coaches, c]); setIsAddingCoach(false); }} />
-      )}
-      {selectedOfficer && (
-        <OfficerDetail officer={selectedOfficer} onClose={() => setSelectedOfficer(null)} canEdit={isCoach} onUpdate={(u) => setOfficers(prev => prev.map(o => o.id === u.id ? o : o))} />
-      )}
-      {isAddingOfficer && (
-        <OfficerModal onClose={() => setIsAddingOfficer(false)} onSave={(o) => { setOfficers([...officers, o]); setIsAddingOfficer(false); }} />
-      )}
-      {editingAnnouncement && (
-        <AnnouncementModal announcement={editingAnnouncement} onClose={() => setEditingAnnouncement(null)} onSave={(a) => { setAnnouncements([a, ...announcements.filter(x => x.id !== a.id)]); setEditingAnnouncement(null); }} />
-      )}
-      {editingTournament && (
-        <TournamentModal tournament={editingTournament} onClose={() => setEditingTournament(null)} isCoach={isCoach} onSave={(t) => { setTournaments([t, ...tournaments.filter(x => x.id !== t.id)]); setEditingTournament(null); }} />
-      )}
-      {editingDailyPlan && (
-        <DailyPlanModal plan={editingDailyPlan} onClose={() => setEditingDailyPlan(null)} onSave={(p) => { setDailyPlans([p, ...dailyPlans.filter(x => x.id !== p.id)]); setEditingDailyPlan(null); }} />
-      )}
-      {editingSession && (
-        <SessionModal session={editingSession} onClose={() => setEditingSession(null)} onSave={(s) => { setSessions([s, ...sessions.filter(x => x.id !== s.id)]); setEditingSession(null); }} />
-      )}
-      {showBrandingModal && (
-        <BrandingModal currentName={academyName} currentLogo={academyLogo} currentBanner={academyBanner} onClose={() => setShowBrandingModal(false)} onSave={(n, l, b) => { setAcademyName(n); setAcademyLogo(l); setAcademyBanner(b); setShowBrandingModal(false); }} />
-      )}
-
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile Nav */}
       <nav className="md:hidden fixed bottom-8 left-8 right-8 bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-[40px] flex items-center justify-around py-6 z-40 shadow-3xl">
-        {[
-          { id: 'dashboard', icon: '🏠' },
-          { id: 'students', icon: '🎾' },
-          { id: 'coaches', icon: '👔' },
-          { id: 'attendance', icon: '📊' },
-          { id: 'schedule', icon: '📅' }
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`text-2xl transition-all duration-300 ${activeTab === tab.id ? 'text-blue-500 scale-150 -translate-y-1' : 'text-slate-500 hover:text-slate-300'}`}>
-            {tab.icon}
+        {['dashboard', 'students', 'coaches', 'attendance', 'schedule'].map(id => (
+          <button key={id} onClick={() => setActiveTab(id as any)} className={`text-2xl transition-all ${activeTab === id ? 'text-blue-500 scale-150 -translate-y-1' : 'text-slate-500'}`}>
+            {id === 'dashboard' ? '🏠' : id === 'students' ? '🎾' : id === 'coaches' ? '👔' : id === 'attendance' ? '📊' : '📅'}
           </button>
         ))}
       </nav>
