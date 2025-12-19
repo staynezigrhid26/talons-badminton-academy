@@ -53,21 +53,11 @@ const App: React.FC = () => {
   
   const isCoach = user.role === 'coach' && user.isLoggedIn;
 
-  // Officer Hierarchy Logic
-  const OFFICER_RANK_MAP: Record<string, number> = {
-    'President': 1, 'Vice President': 2, 'Secretary': 3, 'Treasurer': 4,
-    'Auditor': 5, 'P.I.O.': 6, 'PIO': 6, 'Sgt. at Arms': 7, 'Sergeant at Arms': 7
-  };
-
   const sortedOfficers = useMemo(() => {
-    return [...(officers || [])].sort((a, b) => {
-      const rankA = OFFICER_RANK_MAP[a.role || ''] || 99;
-      const rankB = OFFICER_RANK_MAP[b.role || ''] || 99;
-      return rankA - rankB;
-    });
+    const rankMap: Record<string, number> = { 'President': 1, 'Vice President': 2, 'Secretary': 3, 'Treasurer': 4 };
+    return [...(officers || [])].sort((a, b) => (rankMap[a.role] || 99) - (rankMap[b.role] || 99));
   }, [officers]);
 
-  // Initial Load - Fetch from Supabase
   useEffect(() => {
     const fetchEverything = async () => {
       setLoading(true);
@@ -77,44 +67,24 @@ const App: React.FC = () => {
       if (isConfigured) {
         try {
           const [dbStudents, dbCoaches, dbTournaments, dbAnnouncements, dbPlans, dbSessions, dbOfficers] = await Promise.all([
-            fetchData('students'),
-            fetchData('coaches'),
-            fetchData('tournaments'),
-            fetchData('announcements'),
-            fetchData('daily_plans'),
-            fetchData('sessions'),
+            fetchData('students'), fetchData('coaches'), fetchData('tournaments'),
+            fetchData('announcements'), fetchData('daily_plans'), fetchData('sessions'),
             fetchData('officers')
           ]);
-
-          if (dbStudents) setStudents(dbStudents);
-          else setStudents(INITIAL_STUDENTS);
-
-          if (dbCoaches) setCoaches(dbCoaches);
-          else setCoaches(INITIAL_COACHES);
-
-          if (dbTournaments) setTournaments(dbTournaments);
-          else setTournaments(MOCK_TOURNAMENTS);
-
-          if (dbAnnouncements) setAnnouncements(dbAnnouncements);
-          else setAnnouncements(INITIAL_ANNOUNCEMENTS);
-
-          if (dbPlans) setDailyPlans(dbPlans);
-          else setDailyPlans(INITIAL_DAILY_PLANS);
-
-          if (dbSessions) setSessions(dbSessions);
-          else setSessions(INITIAL_SESSIONS);
-
-          if (dbOfficers) setOfficers(dbOfficers);
-          else setOfficers(INITIAL_OFFICERS);
-
+          setStudents(dbStudents || INITIAL_STUDENTS);
+          setCoaches(dbCoaches || INITIAL_COACHES);
+          setTournaments(dbTournaments || MOCK_TOURNAMENTS);
+          setAnnouncements(dbAnnouncements || INITIAL_ANNOUNCEMENTS);
+          setDailyPlans(dbPlans || INITIAL_DAILY_PLANS);
+          setSessions(dbSessions || INITIAL_SESSIONS);
+          setOfficers(dbOfficers || INITIAL_OFFICERS);
         } catch (err) {
-          console.warn("Could not fetch from Supabase, using defaults.");
+          console.warn("Using local defaults due to fetch error.");
         }
       } else {
-        // Fallback to localStorage if no Supabase
-        const loadKey = (key: string, defaultValue: any) => {
-          const saved = localStorage.getItem(`talons_${key}`);
-          return saved ? JSON.parse(saved) : defaultValue;
+        const loadKey = (k: string, d: any) => {
+          const s = localStorage.getItem(`talons_${k}`);
+          return s ? JSON.parse(s) : d;
         };
         setStudents(loadKey('students', INITIAL_STUDENTS));
         setCoaches(loadKey('coaches', INITIAL_COACHES));
@@ -124,29 +94,22 @@ const App: React.FC = () => {
         setSessions(loadKey('sessions', INITIAL_SESSIONS));
         setOfficers(loadKey('officers', INITIAL_OFFICERS));
       }
-
-      // Load Branding (usually static or from local storage)
-      const branding = JSON.parse(localStorage.getItem('talons_branding') || '{"name":"TALONS ACADEMY"}');
-      setAcademyName(branding.name || 'TALONS ACADEMY');
-      setAcademyLogo(branding.logo);
-      setAcademyBanner(branding.banner);
-      
       setLoading(false);
     };
     fetchEverything();
   }, []);
 
-  // Sync to Supabase functions
   const handleUpdateRecord = async (table: string, record: any, stateSetter: React.Dispatch<React.SetStateAction<any[]>>) => {
     if (cloudEnabled) {
       try {
         const saved = await upsertRecord(table, record);
-        stateSetter(prev => [saved, ...prev.filter(r => r.id !== saved.id)]);
-      } catch (e) {
-        alert(`Failed to save to cloud: ${table}`);
+        if (saved) stateSetter(prev => [saved, ...prev.filter(r => r.id !== saved.id)]);
+      } catch (e: any) {
+        alert(`Supabase Error: ${e.message || 'Check browser console for SQL details.'}`);
       }
     } else {
       stateSetter(prev => [record, ...prev.filter(r => r.id !== record.id)]);
+      localStorage.setItem(`talons_${table}`, JSON.stringify([record, ...(JSON.parse(localStorage.getItem(`talons_${table}`) || '[]').filter((r:any) => r.id !== record.id))]));
     }
   };
 
@@ -155,96 +118,66 @@ const App: React.FC = () => {
       try {
         await deleteRecord(table, id);
         stateSetter(prev => prev.filter(r => r.id !== id));
-      } catch (e) {
-        alert("Delete failed.");
-      }
+      } catch (e) { alert("Delete failed."); }
     } else {
       stateSetter(prev => prev.filter(r => r.id !== id));
     }
   };
 
-  const updateStudent = useCallback((updated: Student) => {
-    handleUpdateRecord('students', updated, setStudents);
-    setSelectedStudent(null);
-  }, [cloudEnabled]);
+  // Fix: Added missing update handler functions
+  const updateStudent = (student: Student) => handleUpdateRecord('students', student, setStudents);
+  const updateCoach = (coach: Coach) => handleUpdateRecord('coaches', coach, setCoaches);
+  const updateOfficer = (officer: Officer) => handleUpdateRecord('officers', officer, setOfficers);
 
-  const updateCoach = useCallback((updated: Coach) => {
-    handleUpdateRecord('coaches', updated, setCoaches);
-    setSelectedCoach(null);
-  }, [cloudEnabled]);
-
-  const updateOfficer = useCallback((updated: Officer) => {
-    handleUpdateRecord('officers', updated, setOfficers);
-    setSelectedOfficer(null);
-  }, [cloudEnabled]);
-
-  const handleManualSync = async () => {
-    if (!cloudEnabled) {
-      alert("Supabase is not configured.");
-      return;
-    }
-    setIsSyncing(true);
-    try {
-      const diagnostic = await checkStorageConfig();
-      alert(diagnostic.ok ? "Cloud connection is healthy!" : `Cloud Issue: ${diagnostic.message}`);
-    } catch (e) {
-      alert("Sync check failed.");
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
+  // Fix: Added missing handleLogin function
+  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const email = (form.elements.namedItem('email') as HTMLInputElement).value;
-    const password = (form.elements.namedItem('password') as HTMLInputElement).value;
-    const coach = coaches.find(c => c.email.toLowerCase() === email.toLowerCase() && (c.password === password || password === 'admin'));
+    const fd = new FormData(e.currentTarget);
+    const email = fd.get('email') as string;
+    const password = fd.get('password') as string;
     
+    const coach = coaches.find(c => c.email === email && c.password === password);
     if (coach) {
       setUser({ isLoggedIn: true, role: 'coach', profile: coach });
       setShowLoginModal(false);
       setLoginError('');
     } else {
-      setLoginError('Invalid credentials');
+      setLoginError('Invalid email or password');
+      alert('Invalid credentials');
     }
   };
 
   const handleToggleAttendance = (student: Student, date: string) => {
     if (!isCoach) return;
-    const existing = (student.attendance || []).find(r => r.date === date);
-    let newAttendance: AttendanceRecord[];
-    if (existing) {
-      newAttendance = student.attendance.map(r => r.date === date ? { ...r, status: r.status === 'present' ? 'absent' : 'present' } : r);
-    } else {
-      newAttendance = [{ date, status: 'present' }, ...(student.attendance || [])];
-    }
-    updateStudent({ ...student, attendance: newAttendance });
+    const att = student.attendance || [];
+    const existing = att.find(r => r.date === date);
+    const nextAtt = existing 
+      ? att.map(r => r.date === date ? { ...r, status: r.status === 'present' ? 'absent' : 'present' } : r)
+      : [{ date, status: 'present' as const }, ...att];
+    handleUpdateRecord('students', { ...student, attendance: nextAtt }, setStudents);
   };
 
-  if (loading) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-slate-900 gap-4">
-      <div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-      <p className="font-black text-blue-400 uppercase tracking-widest text-[10px]">Cloud Portal Initializing</p>
-    </div>
-  );
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    const d = await checkStorageConfig();
+    alert(d.message);
+    setIsSyncing(false);
+  };
+
+  if (loading) return <div className="h-screen flex flex-col items-center justify-center bg-slate-900 gap-4"><div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div><p className="font-black text-blue-400 uppercase tracking-widest text-[10px]">Cloud Syncing...</p></div>;
 
   return (
     <div className="min-h-screen pb-24 md:pb-0 md:pl-64 bg-slate-50 selection:bg-blue-100">
-      {/* Sidebar - Remains identical to previous successful versions */}
-      <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-slate-900 text-white flex-col p-8 z-40 border-r border-white/5 shadow-2xl">
-        <div className="mb-12">
-          <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black italic text-2xl shadow-lg shadow-blue-600/20 overflow-hidden ${academyLogo ? 'bg-white' : ''}`}>
-               {academyLogo ? <img src={academyLogo} className="w-full h-full object-cover" alt="Logo" /> : (academyName ? academyName.charAt(0) : 'T')}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <h1 className="text-sm font-black tracking-tighter leading-none truncate uppercase">{academyName}</h1>
-              <p className="text-[8px] text-blue-400 font-black uppercase tracking-widest mt-1">Academy Pro</p>
-            </div>
+      <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-slate-900 text-white flex-col p-8 z-40 border-r border-white/5">
+        <div className="mb-12 flex items-center gap-3">
+          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black italic text-2xl overflow-hidden">
+            {academyLogo ? <img src={academyLogo} className="w-full h-full object-cover" /> : academyName.charAt(0)}
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <h1 className="text-sm font-black truncate uppercase">{academyName}</h1>
+            <p className="text-[8px] text-blue-400 font-black uppercase tracking-widest mt-1">Academy Pro</p>
           </div>
         </div>
-        
         <nav className="flex-1 space-y-1">
           {[
             { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
@@ -255,34 +188,22 @@ const App: React.FC = () => {
             { id: 'officers', label: 'Officers', icon: '👥' },
             { id: 'plans', label: 'Training Plans', icon: '📋' }
           ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`w-full text-left px-5 py-4 rounded-2xl transition-all font-bold flex items-center gap-4 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/40' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-            >
-              <span className="text-lg">{tab.icon}</span>
-              {tab.label}
+            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`w-full text-left px-5 py-4 rounded-2xl transition-all font-bold flex items-center gap-4 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>
+              <span>{tab.icon}</span>{tab.label}
             </button>
           ))}
         </nav>
-
         <div className="pt-8 border-t border-white/10 mt-auto">
           {user.isLoggedIn ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl">
-                <img src={user.profile?.profilePic} className="w-10 h-10 rounded-xl object-cover border border-white/10" alt="me" />
-                <div className="overflow-hidden">
-                  <p className="text-xs font-black truncate">{user.profile?.name}</p>
-                  <p className="text-[9px] text-blue-400 font-bold uppercase">Authorized</p>
-                </div>
+              <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl overflow-hidden">
+                <img src={user.profile?.profilePic} className="w-10 h-10 rounded-xl object-cover" />
+                <div className="truncate"><p className="text-xs font-black truncate">{user.profile?.name}</p></div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                {isCoach && <button onClick={() => setShowBrandingModal(true)} className="w-full py-2 bg-white/5 text-[8px] font-black uppercase text-slate-400 rounded-lg hover:bg-white/10 transition">Branding</button>}
-                <button onClick={() => setUser({isLoggedIn: false, role: 'student', profile: null})} className="w-full py-2 bg-rose-900/20 text-[8px] font-black uppercase text-rose-400 rounded-lg hover:bg-rose-900/40 transition">Logout</button>
-              </div>
+              <button onClick={() => setUser({isLoggedIn: false, role: 'student', profile: null})} className="w-full py-2 bg-rose-900/20 text-[8px] font-black uppercase text-rose-400 rounded-lg">Logout</button>
             </div>
           ) : (
-            <button onClick={() => setShowLoginModal(true)} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-blue-500 transition-all active:scale-95">Coach Portal</button>
+            <button onClick={() => setShowLoginModal(true)} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase">Coach Portal</button>
           )}
         </div>
       </aside>
@@ -291,55 +212,35 @@ const App: React.FC = () => {
         {activeTab === 'dashboard' && (
           <div className="space-y-10 animate-in fade-in duration-500">
              <div className="relative rounded-[48px] overflow-hidden bg-slate-900 text-white shadow-2xl p-10 min-h-[300px] flex flex-col justify-center border-4 border-white">
-                {academyBanner && (
-                  <img src={academyBanner} className="absolute inset-0 w-full h-full object-cover opacity-40 pointer-events-none" alt="Banner" />
-                )}
+                {academyBanner && <img src={academyBanner} className="absolute inset-0 w-full h-full object-cover opacity-40" />}
                 <div className="relative z-10">
                   <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-none mb-4 uppercase italic">{academyName}</h1>
-                  <p className="text-blue-400 font-black text-xs md:text-sm uppercase tracking-[0.4em] opacity-80">Elite Badminton Management System</p>
-                  {isCoach && (
-                    <div className="mt-8">
-                      <button onClick={handleManualSync} disabled={isSyncing} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-2 transition-all active:scale-95">
-                        {isSyncing ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : "Check Cloud Health"}
-                      </button>
-                    </div>
-                  )}
+                  <p className="text-blue-400 font-black text-xs uppercase tracking-[0.4em]">Elite Management Portal</p>
+                  {isCoach && <button onClick={handleManualSync} disabled={isSyncing} className="mt-8 bg-emerald-600 px-6 py-3 rounded-2xl font-black text-[10px] uppercase">Cloud Check</button>}
                 </div>
              </div>
-
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <section className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col">
-                   <div className="flex justify-between items-center mb-8 px-2">
-                      <h2 className="text-2xl font-black tracking-tight uppercase">Tournaments</h2>
-                      {isCoach && <button onClick={() => setEditingTournament({})} className="bg-blue-600 text-white w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg hover:rotate-90 transition-all">+</button>}
-                   </div>
+                <section className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm">
+                   <div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-black uppercase">Tournaments</h2>{isCoach && <button onClick={() => setEditingTournament({})} className="bg-blue-600 text-white w-10 h-10 rounded-2xl font-black text-xl shadow-lg">+</button>}</div>
                    <div className="space-y-4">
-                      {tournaments.map(t => (
-                        <div key={t.id} onClick={() => setEditingTournament(t)} className="group p-5 bg-slate-50 rounded-3xl border border-slate-100 flex items-center gap-5 hover:border-blue-200 transition-all cursor-pointer">
-                           <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex flex-col items-center justify-center shrink-0 border border-slate-100">
+                      {(tournaments || []).map(t => (
+                        <div key={t.id} onClick={() => setEditingTournament(t)} className="p-5 bg-slate-50 rounded-3xl border flex items-center gap-5 cursor-pointer">
+                           <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex flex-col items-center justify-center shrink-0">
                               <p className="text-[10px] font-black uppercase text-blue-600 leading-none">{new Date(t.date).toLocaleString('default', { month: 'short' })}</p>
                               <p className="text-2xl font-black text-slate-900 leading-none mt-1">{new Date(t.date).getDate()}</p>
                            </div>
-                           <div className="flex-1 overflow-hidden">
-                              <h3 className="font-black text-slate-800 tracking-tight text-lg leading-none truncate">{t.name}</h3>
-                              <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mt-2">{t.location}</p>
-                           </div>
+                           <div className="overflow-hidden"><h3 className="font-black text-slate-800 text-lg leading-none truncate">{t.name}</h3><p className="text-[10px] text-slate-400 uppercase font-black mt-2">{t.location}</p></div>
                         </div>
                       ))}
                    </div>
                 </section>
-                
-                <section className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col">
-                   <div className="flex justify-between items-center mb-8 px-2">
-                      <h2 className="text-2xl font-black tracking-tight uppercase">News</h2>
-                      {isCoach && <button onClick={() => setEditingAnnouncement({})} className="bg-blue-600 text-white w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg hover:rotate-90 transition-all">+</button>}
-                   </div>
+                <section className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm">
+                   <div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-black uppercase">News</h2>{isCoach && <button onClick={() => setEditingAnnouncement({})} className="bg-blue-600 text-white w-10 h-10 rounded-2xl font-black text-xl shadow-lg">+</button>}</div>
                    <div className="space-y-6">
-                      {announcements.map(a => (
-                        <div key={a.id} onClick={() => setEditingAnnouncement(a)} className="pb-6 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 p-4 rounded-3xl transition-all cursor-pointer">
+                      {(announcements || []).map(a => (
+                        <div key={a.id} onClick={() => setEditingAnnouncement(a)} className="pb-6 border-b border-slate-50 last:border-0 p-4 rounded-3xl cursor-pointer">
                            <p className="text-[9px] font-black text-blue-600 uppercase mb-2 bg-blue-50 px-3 py-1 rounded-full inline-block">{a.date}</p>
-                           <h3 className="text-xl font-black text-slate-800 tracking-tight">{a.title}</h3>
-                           <p className="text-sm text-slate-500 mt-2 font-medium line-clamp-2">{a.content}</p>
+                           <h3 className="text-xl font-black text-slate-800">{a.title}</h3>
                         </div>
                       ))}
                    </div>
@@ -348,46 +249,17 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Tab content logic for Students, Coaches, Officers, Attendance, Schedule, Plans */}
         {activeTab === 'students' && (
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
             <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
-              <div>
-                <h2 className="text-5xl font-black tracking-tighter uppercase italic">Athletes</h2>
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Active Player Roster</p>
-              </div>
+              <h2 className="text-5xl font-black tracking-tighter uppercase italic">Athletes</h2>
               <div className="flex gap-4 w-full md:w-auto">
-                <input 
-                  type="text" placeholder="Search..." 
-                  className="bg-white border-2 border-slate-100 px-6 py-4 rounded-3xl focus:border-blue-600 outline-none text-sm font-bold flex-1 md:w-64 shadow-sm"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {isCoach && (
-                  <button 
-                    onClick={() => setSelectedStudent({ 
-                      id: `s${Date.now()}`, 
-                      name: '', 
-                      age: 0, 
-                      birthday: '', 
-                      profilePic: 'https://api.dicebear.com/7.x/avataaars/svg?seed=new', 
-                      level: SkillLevel.BEGINNER, 
-                      healthStatus: HealthStatus.FIT, 
-                      attendance: [], 
-                      tournamentIds: [],
-                      notes: '' 
-                    })} 
-                    className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 active:scale-95 transition-all"
-                  >
-                    Add Athlete
-                  </button>
-                )}
+                <input type="text" placeholder="Search..." className="bg-white border-2 border-slate-100 px-6 py-4 rounded-3xl text-sm font-bold flex-1 md:w-64 outline-none focus:border-blue-600" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                {isCoach && <button onClick={() => setSelectedStudent({ id: `s${Date.now()}`, name: '', age: 0, birthday: '', profilePic: 'https://api.dicebear.com/7.x/avataaars/svg?seed=new', level: SkillLevel.BEGINNER, healthStatus: HealthStatus.FIT, attendance: [], tournamentIds: [], notes: '' })} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl">Add Athlete</button>}
               </div>
             </header>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               {(students || []).filter(s => (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())).map(s => (
-                 <StudentCard key={s.id} student={s} onClick={() => setSelectedStudent(s)} />
-               ))}
+               {(students || []).filter(s => (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())).map(s => <StudentCard key={s.id} student={s} onClick={() => setSelectedStudent(s)} />)}
             </div>
           </div>
         )}
@@ -395,33 +267,21 @@ const App: React.FC = () => {
         {activeTab === 'schedule' && (
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
             <header className="flex justify-between items-end px-2">
-               <div>
-                  <h2 className="text-5xl font-black tracking-tighter uppercase italic">Schedule</h2>
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Active Training Slots</p>
-               </div>
-               {isCoach && (
-                 <button onClick={() => setEditingSession({})} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">Add Session</button>
-               )}
+               <h2 className="text-5xl font-black tracking-tighter uppercase italic">Schedule</h2>
+               {isCoach && <button onClick={() => setEditingSession({})} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl">Add Session</button>}
             </header>
             <div className="space-y-4">
                {[...(sessions || [])].sort((a,b) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime()).map(s => (
                  <div key={s.id} onClick={() => isCoach && setEditingSession(s)} className="bg-white p-8 rounded-[40px] border border-slate-100 flex flex-col md:flex-row md:items-center gap-6 group cursor-pointer hover:shadow-xl transition-all">
-                    <div className="w-16 h-16 bg-blue-600 rounded-2xl flex flex-col items-center justify-center text-white shrink-0 shadow-lg shadow-blue-200">
+                    <div className="w-16 h-16 bg-blue-600 rounded-2xl flex flex-col items-center justify-center text-white shrink-0">
                        <span className="text-[9px] font-black uppercase leading-none opacity-80">{new Date(s.date || '').toLocaleString('default', { month: 'short' })}</span>
                        <span className="text-xl font-black leading-none mt-1">{new Date(s.date || '').getDate()}</span>
                     </div>
                     <div className="flex-1">
-                       <div className="flex items-center gap-3 mb-1">
-                          <h3 className="font-black text-xl text-slate-800 uppercase tracking-tight">{s.title}</h3>
-                          <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${s.type === 'Special' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>{s.type}</span>
-                       </div>
+                       <div className="flex items-center gap-3 mb-1"><h3 className="font-black text-xl text-slate-800 uppercase">{s.title}</h3><span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${s.type === 'Special' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>{s.type}</span></div>
                        <p className="text-slate-500 font-bold text-sm">{s.startTime} - {s.endTime} • <span className="text-slate-400 font-medium italic">{s.focus}</span></p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                       {(s.targetLevels || []).map(lvl => (
-                         <span key={lvl} className="text-[8px] font-black uppercase tracking-widest text-slate-400 border border-slate-100 px-3 py-1 rounded-full">{lvl}</span>
-                       ))}
-                    </div>
+                    <div className="flex flex-wrap gap-2">{(s.targetLevels || []).map(lvl => <span key={lvl} className="text-[8px] font-black uppercase tracking-widest text-slate-400 border border-slate-100 px-3 py-1 rounded-full">{lvl}</span>)}</div>
                  </div>
                ))}
                {(sessions || []).length === 0 && <div className="p-12 text-center text-slate-300 font-black uppercase tracking-[0.2em] bg-white rounded-[40px] border border-dashed">No sessions scheduled</div>}
@@ -432,28 +292,17 @@ const App: React.FC = () => {
         {activeTab === 'plans' && (
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
             <header className="flex justify-between items-end px-2">
-               <div>
-                  <h2 className="text-5xl font-black tracking-tighter uppercase italic">Blueprints</h2>
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Training Exercise Plans</p>
-               </div>
-               {isCoach && (
-                 <button onClick={() => setEditingDailyPlan({})} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">Create Blueprint</button>
-               )}
+               <h2 className="text-5xl font-black tracking-tighter uppercase italic">Plans</h2>
+               {isCoach && <button onClick={() => setEditingDailyPlan({})} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl">Create Blueprint</button>}
             </header>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                {(dailyPlans || []).map(p => (
                  <div key={p.id} onClick={() => isCoach && setEditingDailyPlan(p)} className="bg-white p-8 rounded-[48px] border border-slate-100 group cursor-pointer hover:shadow-2xl transition-all flex flex-col h-full">
-                    <div className="flex justify-between items-start mb-6">
-                       <span className="text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-4 py-1 rounded-full border border-blue-100">{p.date}</span>
-                       <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest">{p.totalDuration}</span>
-                    </div>
+                    <div className="flex justify-between items-start mb-6"><span className="text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-4 py-1 rounded-full">{p.date}</span><span className="text-slate-400 font-black text-[10px] uppercase tracking-widest">{p.totalDuration}</span></div>
                     <h3 className="font-black text-2xl text-slate-800 tracking-tight mb-4 uppercase leading-none">{p.title}</h3>
                     <div className="space-y-3 flex-1">
-                       {(p.exercises || []).slice(0, 3).map((ex, i) => (
-                         <div key={i} className="flex items-center justify-between text-xs py-2 border-b border-slate-50 last:border-0">
-                            <span className="text-slate-600 font-bold">{ex.name}</span>
-                            <span className="text-slate-400 font-medium">{ex.duration}</span>
-                         </div>
+                       {(p.exercises || []).slice(0, 3).map((ex:any, i:number) => (
+                         <div key={i} className="flex items-center justify-between text-xs py-2 border-b border-slate-50 last:border-0"><span className="text-slate-600 font-bold">{ex.name}</span><span className="text-slate-400 font-medium">{ex.duration}</span></div>
                        ))}
                        {(p.exercises || []).length > 3 && <p className="text-[10px] text-blue-500 font-black mt-2">+ {(p.exercises || []).length - 3} more drills</p>}
                     </div>
@@ -463,99 +312,9 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
-
-        {/* ... Rest of tabs (Coaches, Officers, Attendance) using similar map logic with defensive checks ... */}
-        {activeTab === 'coaches' && (
-          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-            <header className="flex justify-between items-end px-2">
-               <h2 className="text-5xl font-black tracking-tighter uppercase italic">Staff</h2>
-               {isCoach && (
-                 <button onClick={() => setIsAddingCoach(true)} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">New Staff</button>
-               )}
-            </header>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-               {(coaches || []).map(c => (
-                 <div key={c.id} onClick={() => setSelectedCoach(c)} className="bg-white p-8 rounded-[40px] border border-slate-100 group cursor-pointer hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
-                    <img src={c.profilePic} className="w-24 h-24 rounded-3xl mx-auto object-cover border-4 border-slate-50 mb-6 group-hover:scale-110 transition duration-500" alt={c.name} />
-                    <div className="text-center">
-                       <h3 className="font-black text-slate-800 text-2xl tracking-tight leading-none">{c.name}</h3>
-                       <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-3 bg-blue-50 px-4 py-1.5 rounded-full inline-block border border-blue-100">{c.specialization}</p>
-                    </div>
-                 </div>
-               ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'officers' && (
-          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-            <header className="flex justify-between items-end px-2">
-               <h2 className="text-5xl font-black tracking-tighter uppercase italic">Board</h2>
-               {isCoach && (
-                 <button onClick={() => setIsAddingOfficer(true)} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">Add Officer</button>
-               )}
-            </header>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-               {sortedOfficers.map(off => (
-                 <div key={off.id} onClick={() => setSelectedOfficer(off)} className="bg-white p-8 rounded-[40px] border border-slate-100 text-center hover:shadow-2xl hover:-translate-y-2 transition-all group cursor-pointer">
-                    <img src={off.profilePic} className="w-24 h-24 rounded-[32px] mx-auto object-cover border-4 border-slate-50 mb-6 group-hover:scale-110 transition duration-500" alt="" />
-                    <h3 className="font-black text-slate-800 text-xl tracking-tight leading-none">{off.name}</h3>
-                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-3 bg-blue-50 px-4 py-1.5 rounded-full inline-block border border-blue-100">{off.role}</p>
-                 </div>
-               ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'attendance' && (
-          <div className="space-y-8">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
-              <h2 className="text-5xl font-black tracking-tighter uppercase italic">Attendance</h2>
-              <div className="flex items-center gap-3 bg-white p-3 rounded-3xl border border-slate-200">
-                <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} className="bg-slate-50 px-4 py-2 rounded-2xl font-black text-xs outline-none" />
-              </div>
-            </header>
-            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm overflow-x-auto">
-               <table className="w-full text-left">
-                 <thead>
-                   <tr className="text-[10px] font-black uppercase text-slate-400 border-b">
-                     <th className="pb-6 pl-6">Athlete</th>
-                     <th className="pb-6">Level</th>
-                     <th className="pb-6 text-center">Status</th>
-                     <th className="pb-6 text-right pr-6">Action</th>
-                   </tr>
-                 </thead>
-                 <tbody className="divide-y">
-                   {(students || []).map(s => {
-                     const record = (s.attendance || []).find(r => r.date === attendanceDate);
-                     return (
-                      <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-5 pl-6 font-black text-slate-800 flex items-center gap-4">
-                          <img src={s.profilePic} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" alt="" />
-                          {s.name}
-                        </td>
-                        <td className="py-5"><span className="text-[9px] font-black text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-md">{s.level}</span></td>
-                        <td className="py-5 text-center">
-                           {record ? <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${record.status === 'present' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{record.status}</span> : <span className="text-[10px] font-black text-slate-300">N/A</span>}
-                        </td>
-                        <td className="py-5 text-right pr-6">
-                          {isCoach && (
-                            <button onClick={() => handleToggleAttendance(s, attendanceDate)} className={`p-3 rounded-2xl transition-all ${record?.status === 'present' ? 'bg-emerald-600 text-white shadow-emerald-200 shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                     );
-                   })}
-                 </tbody>
-               </table>
-            </div>
-          </div>
-        )}
       </main>
 
-      {/* Detail Overlays & Modals */}
+      {/* Modals & Detail Overlays */}
       {selectedStudent && <StudentDetail student={selectedStudent} tournaments={tournaments} onClose={() => setSelectedStudent(null)} onUpdate={updateStudent} role={user.role} onDelete={(id) => handleDeleteRecord('students', id, setStudents)} />}
       {selectedCoach && <CoachDetail coach={selectedCoach} canEdit={isCoach} onClose={() => setSelectedCoach(null)} onUpdate={updateCoach} onDelete={(id) => handleDeleteRecord('coaches', id, setCoaches)} />}
       {isAddingCoach && <CoachModal onClose={() => setIsAddingCoach(false)} onSave={(c) => { updateCoach(c); setIsAddingCoach(false); }} />}
@@ -567,30 +326,19 @@ const App: React.FC = () => {
       {editingSession && <SessionModal session={editingSession} onClose={() => setEditingSession(null)} onSave={(s) => handleUpdateRecord('sessions', s, setSessions).then(() => setEditingSession(null))} />}
       {showBrandingModal && <BrandingModal currentName={academyName} currentLogo={academyLogo} currentBanner={academyBanner} onClose={() => setShowBrandingModal(false)} onSave={(n, l, b) => { setAcademyName(n); setAcademyLogo(l); setAcademyBanner(b); setShowBrandingModal(false); }} />}
 
-      {/* Login Modal */}
       {showLoginModal && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[100] flex items-center justify-center p-6">
-          <div className="bg-white p-12 rounded-[56px] w-full max-w-md shadow-3xl relative animate-in zoom-in duration-500">
-            <button onClick={() => setShowLoginModal(false)} className="absolute top-10 right-10 text-slate-400 font-black hover:text-slate-900 transition">CLOSE</button>
-            <h3 className="text-4xl font-black mb-10 text-center italic tracking-tighter uppercase leading-none">Terminal Access</h3>
-            {loginError && <p className="mb-6 text-[10px] font-black uppercase tracking-widest text-rose-500 text-center bg-rose-50 p-4 rounded-2xl">{loginError}</p>}
+          <div className="bg-white p-12 rounded-[56px] w-full max-w-md shadow-3xl relative animate-in zoom-in">
+            <button onClick={() => setShowLoginModal(false)} className="absolute top-10 right-10 text-slate-400 font-black">CLOSE</button>
+            <h3 className="text-4xl font-black mb-10 text-center uppercase">Coach Portal</h3>
             <form onSubmit={handleLogin} className="space-y-5">
-              <input name="email" type="email" placeholder="COACH EMAIL" required className="w-full bg-slate-50 border-2 border-slate-100 p-6 rounded-[32px] outline-none focus:border-blue-600 font-black text-sm uppercase" />
-              <input name="password" type="password" placeholder="PASSWORD" required className="w-full bg-slate-50 border-2 border-slate-100 p-6 rounded-[32px] outline-none focus:border-blue-600 font-black text-sm uppercase" />
-              <button type="submit" className="w-full bg-blue-600 text-white py-6 rounded-[32px] font-black uppercase tracking-[0.2em] shadow-2xl text-xs mt-4 active:scale-95 transition-all">Authorize Profile</button>
+              <input name="email" type="email" placeholder="COACH EMAIL" required className="w-full bg-slate-50 border-2 border-slate-100 p-6 rounded-[32px] font-black text-sm uppercase outline-none focus:border-blue-600" />
+              <input name="password" type="password" placeholder="PASSWORD" required className="w-full bg-slate-50 border-2 border-slate-100 p-6 rounded-[32px] font-black text-sm uppercase outline-none focus:border-blue-600" />
+              <button type="submit" className="w-full bg-blue-600 text-white py-6 rounded-[32px] font-black uppercase text-xs">Authorize Profile</button>
             </form>
           </div>
         </div>
       )}
-
-      {/* Mobile Nav */}
-      <nav className="md:hidden fixed bottom-8 left-8 right-8 bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-[40px] flex items-center justify-around py-6 z-40 shadow-3xl">
-        {['dashboard', 'students', 'coaches', 'attendance', 'schedule', 'plans'].map(id => (
-          <button key={id} onClick={() => setActiveTab(id as any)} className={`text-2xl transition-all ${activeTab === id ? 'text-blue-500 scale-150 -translate-y-1' : 'text-slate-500'}`}>
-            {id === 'dashboard' ? '🏠' : id === 'students' ? '🎾' : id === 'coaches' ? '👔' : id === 'attendance' ? '📊' : id === 'schedule' ? '📅' : '📋'}
-          </button>
-        ))}
-      </nav>
     </div>
   );
 };

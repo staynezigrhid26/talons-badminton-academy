@@ -1,5 +1,36 @@
 import { createClient } from '@supabase/supabase-js';
 
+/**
+ * 🛠️ SUPABASE SQL EDITOR SCRIPT
+ * Run this in your Supabase SQL Editor to prepare your database:
+ * 
+ * -- Students Table
+ * CREATE TABLE students (id TEXT PRIMARY KEY, name TEXT, age INT, birthday DATE, "profilePic" TEXT, level TEXT, "healthStatus" TEXT, attendance JSONB DEFAULT '[]'::jsonb, "tournamentIds" JSONB DEFAULT '[]'::jsonb, notes TEXT);
+ * -- Coaches Table
+ * CREATE TABLE coaches (id TEXT PRIMARY KEY, name TEXT, email TEXT UNIQUE, password TEXT, specialization TEXT, "profilePic" TEXT, age INT, phone TEXT);
+ * -- Officers Table
+ * CREATE TABLE officers (id TEXT PRIMARY KEY, name TEXT, role TEXT, "profilePic" TEXT, contact TEXT);
+ * -- Tournaments Table
+ * CREATE TABLE tournaments (id TEXT PRIMARY KEY, name TEXT, date DATE, location TEXT, categories JSONB DEFAULT '[]'::jsonb, description TEXT);
+ * -- Announcements Table
+ * CREATE TABLE announcements (id TEXT PRIMARY KEY, title TEXT, content TEXT, date DATE, author TEXT);
+ * -- Daily Plans Table
+ * CREATE TABLE daily_plans (id TEXT PRIMARY KEY, date DATE, "startTime" TEXT, "endTime" TEXT, "totalDuration" TEXT, title TEXT, exercises JSONB DEFAULT '[]'::jsonb, notes TEXT);
+ * -- Sessions Table
+ * CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT, date DATE, "startTime" TEXT, "endTime" TEXT, focus TEXT, type TEXT, "targetLevels" JSONB DEFAULT '[]'::jsonb);
+ * 
+ * -- DISABLE RLS (For rapid development, enable policies later for production)
+ * ALTER TABLE students DISABLE ROW LEVEL SECURITY;
+ * ALTER TABLE coaches DISABLE ROW LEVEL SECURITY;
+ * ALTER TABLE officers DISABLE ROW LEVEL SECURITY;
+ * ALTER TABLE tournaments DISABLE ROW LEVEL SECURITY;
+ * ALTER TABLE announcements DISABLE ROW LEVEL SECURITY;
+ * ALTER TABLE daily_plans DISABLE ROW LEVEL SECURITY;
+ * ALTER TABLE sessions DISABLE ROW LEVEL SECURITY;
+ * 
+ * IMPORTANT: Create a Public Storage Bucket named 'academy-assets' in Supabase Storage.
+ */
+
 const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
 const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || '').trim();
 
@@ -16,82 +47,59 @@ export const supabase = createClient(
   isSupabaseConfigured() ? supabaseAnonKey : 'placeholder'
 );
 
-// Generic fetcher for table data
 export const fetchData = async (table: string) => {
   if (!isSupabaseConfigured()) return null;
-  const { data, error } = await supabase.from(table).select('*');
-  if (error) {
-    console.error(`Error fetching ${table}:`, error);
+  try {
+    const { data, error } = await supabase.from(table).select('*');
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error(`Supabase Fetch Error [${table}]:`, error);
     return null;
   }
-  return data;
 };
 
-// Generic upsert (insert or update)
 export const upsertRecord = async (table: string, record: any) => {
   if (!isSupabaseConfigured()) return null;
-  const { data, error } = await supabase.from(table).upsert(record).select().single();
-  if (error) {
-    console.error(`Error upserting to ${table}:`, error);
+  try {
+    const { data, error } = await supabase.from(table).upsert(record).select().single();
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error(`Supabase Upsert Error [${table}]:`, error);
     throw error;
   }
-  return data;
 };
 
-// Generic delete
 export const deleteRecord = async (table: string, id: string) => {
   if (!isSupabaseConfigured()) return;
-  const { error } = await supabase.from(table).delete().eq('id', id);
-  if (error) {
-    console.error(`Error deleting from ${table}:`, error);
+  try {
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) throw error;
+  } catch (error) {
+    console.error(`Supabase Delete Error [${table}]:`, error);
     throw error;
   }
 };
 
-/**
- * Uploads a base64 image to Supabase Storage.
- */
 export const uploadImage = async (fileBase64: string, folder: string, fileName: string) => {
-  if (!isSupabaseConfigured()) {
-    console.warn('Supabase not configured. Using local storage only.');
-    return null;
-  }
-
+  if (!isSupabaseConfigured()) return null;
   try {
     const base64Parts = fileBase64.split(',');
     const base64Data = base64Parts.length > 1 ? base64Parts[1] : base64Parts[0];
-    
     const byteCharacters = atob(base64Data);
     const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
+    for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
     const byteArray = new Uint8Array(byteNumbers);
     const blob = new Blob([byteArray], { type: 'image/png' });
-
     const cleanFileName = (fileName || 'unnamed').replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const path = `${folder}/${cleanFileName}-${Date.now()}.png`;
-    
-    const { error } = await supabase.storage
-      .from('academy-assets')
-      .upload(path, blob, { 
-        contentType: 'image/png', 
-        upsert: true,
-        cacheControl: '3600'
-      });
-
-    if (error) {
-      console.warn('Cloud upload failed:', error.message);
-      return null;
-    }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('academy-assets')
-      .getPublicUrl(path);
-
+    const { error } = await supabase.storage.from('academy-assets').upload(path, blob, { contentType: 'image/png', upsert: true });
+    if (error) throw error;
+    const { data: { publicUrl } } = supabase.storage.from('academy-assets').getPublicUrl(path);
     return publicUrl;
   } catch (error) {
-    console.warn('Network error during upload.');
+    console.error('Upload Error:', error);
     return null;
   }
 };
