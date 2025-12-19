@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Student, Coach, Tournament, UserState, Announcement, SkillLevel, HealthStatus, Officer, DailyPlan, TrainingSession, AttendanceRecord } from './types';
 import { INITIAL_STUDENTS, INITIAL_COACHES, MOCK_TOURNAMENTS, INITIAL_ANNOUNCEMENTS, INITIAL_OFFICERS, INITIAL_DAILY_PLANS, INITIAL_SESSIONS } from './constants';
-import { isSupabaseConfigured, checkStorageConfig } from './supabaseClient';
+import { isSupabaseConfigured, checkStorageConfig, fetchData, upsertRecord, deleteRecord } from './supabaseClient';
 import StudentCard from './components/StudentCard';
 import StudentDetail from './components/StudentDetail';
 import CoachDetail from './components/CoachDetail';
@@ -60,115 +60,123 @@ const App: React.FC = () => {
   };
 
   const sortedOfficers = useMemo(() => {
-    return [...officers].sort((a, b) => {
+    return [...(officers || [])].sort((a, b) => {
       const rankA = OFFICER_RANK_MAP[a.role || ''] || 99;
       const rankB = OFFICER_RANK_MAP[b.role || ''] || 99;
       return rankA - rankB;
     });
   }, [officers]);
 
-  // Initial Load
+  // Initial Load - Fetch from Supabase
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchEverything = async () => {
       setLoading(true);
       const isConfigured = isSupabaseConfigured();
       setCloudEnabled(isConfigured);
 
-      const loadKey = (key: string, defaultValue: any) => {
+      if (isConfigured) {
         try {
-          const saved = localStorage.getItem(`talons_${key}`);
-          if (saved && saved !== 'undefined') {
-            return JSON.parse(saved);
-          }
-        } catch (e) {
-          console.error(`Error loading key ${key}:`, e);
-        }
-        return defaultValue;
-      };
+          const [dbStudents, dbCoaches, dbTournaments, dbAnnouncements, dbPlans, dbSessions, dbOfficers] = await Promise.all([
+            fetchData('students'),
+            fetchData('coaches'),
+            fetchData('tournaments'),
+            fetchData('announcements'),
+            fetchData('daily_plans'),
+            fetchData('sessions'),
+            fetchData('officers')
+          ]);
 
-      setStudents(loadKey('students', INITIAL_STUDENTS));
-      setCoaches(loadKey('coaches', INITIAL_COACHES));
-      setTournaments(loadKey('tournaments', MOCK_TOURNAMENTS));
-      setAnnouncements(loadKey('announcements', INITIAL_ANNOUNCEMENTS));
-      setDailyPlans(loadKey('plans', INITIAL_DAILY_PLANS));
-      setSessions(loadKey('sessions', INITIAL_SESSIONS));
-      setOfficers(loadKey('officers', INITIAL_OFFICERS));
-      
-      const branding = loadKey('branding', { name: 'TALONS ACADEMY', logo: null, banner: null });
+          if (dbStudents) setStudents(dbStudents);
+          else setStudents(INITIAL_STUDENTS);
+
+          if (dbCoaches) setCoaches(dbCoaches);
+          else setCoaches(INITIAL_COACHES);
+
+          if (dbTournaments) setTournaments(dbTournaments);
+          else setTournaments(MOCK_TOURNAMENTS);
+
+          if (dbAnnouncements) setAnnouncements(dbAnnouncements);
+          else setAnnouncements(INITIAL_ANNOUNCEMENTS);
+
+          if (dbPlans) setDailyPlans(dbPlans);
+          else setDailyPlans(INITIAL_DAILY_PLANS);
+
+          if (dbSessions) setSessions(dbSessions);
+          else setSessions(INITIAL_SESSIONS);
+
+          if (dbOfficers) setOfficers(dbOfficers);
+          else setOfficers(INITIAL_OFFICERS);
+
+        } catch (err) {
+          console.warn("Could not fetch from Supabase, using defaults.");
+        }
+      } else {
+        // Fallback to localStorage if no Supabase
+        const loadKey = (key: string, defaultValue: any) => {
+          const saved = localStorage.getItem(`talons_${key}`);
+          return saved ? JSON.parse(saved) : defaultValue;
+        };
+        setStudents(loadKey('students', INITIAL_STUDENTS));
+        setCoaches(loadKey('coaches', INITIAL_COACHES));
+        setTournaments(loadKey('tournaments', MOCK_TOURNAMENTS));
+        setAnnouncements(loadKey('announcements', INITIAL_ANNOUNCEMENTS));
+        setDailyPlans(loadKey('plans', INITIAL_DAILY_PLANS));
+        setSessions(loadKey('sessions', INITIAL_SESSIONS));
+        setOfficers(loadKey('officers', INITIAL_OFFICERS));
+      }
+
+      // Load Branding (usually static or from local storage)
+      const branding = JSON.parse(localStorage.getItem('talons_branding') || '{"name":"TALONS ACADEMY"}');
       setAcademyName(branding.name || 'TALONS ACADEMY');
       setAcademyLogo(branding.logo);
       setAcademyBanner(branding.banner);
       
       setLoading(false);
     };
-    fetchData();
+    fetchEverything();
   }, []);
 
-  // Persistence Effect
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('talons_students', JSON.stringify(students));
-      localStorage.setItem('talons_coaches', JSON.stringify(coaches));
-      localStorage.setItem('talons_tournaments', JSON.stringify(tournaments));
-      localStorage.setItem('talons_announcements', JSON.stringify(announcements));
-      localStorage.setItem('talons_plans', JSON.stringify(dailyPlans));
-      localStorage.setItem('talons_sessions', JSON.stringify(sessions));
-      localStorage.setItem('talons_officers', JSON.stringify(officers));
-      localStorage.setItem('talons_branding', JSON.stringify({
-        name: academyName, logo: academyLogo, banner: academyBanner
-      }));
+  // Sync to Supabase functions
+  const handleUpdateRecord = async (table: string, record: any, stateSetter: React.Dispatch<React.SetStateAction<any[]>>) => {
+    if (cloudEnabled) {
+      try {
+        const saved = await upsertRecord(table, record);
+        stateSetter(prev => [saved, ...prev.filter(r => r.id !== saved.id)]);
+      } catch (e) {
+        alert(`Failed to save to cloud: ${table}`);
+      }
+    } else {
+      stateSetter(prev => [record, ...prev.filter(r => r.id !== record.id)]);
     }
-  }, [students, coaches, tournaments, announcements, dailyPlans, sessions, officers, academyName, academyLogo, academyBanner, loading]);
+  };
+
+  const handleDeleteRecord = async (table: string, id: string, stateSetter: React.Dispatch<React.SetStateAction<any[]>>) => {
+    if (cloudEnabled) {
+      try {
+        await deleteRecord(table, id);
+        stateSetter(prev => prev.filter(r => r.id !== id));
+      } catch (e) {
+        alert("Delete failed.");
+      }
+    } else {
+      stateSetter(prev => prev.filter(r => r.id !== id));
+    }
+  };
 
   const updateStudent = useCallback((updated: Student) => {
-    setStudents(prev => {
-      const index = prev.findIndex(s => s.id === updated.id);
-      if (index !== -1) {
-        const next = [...prev];
-        next[index] = updated;
-        return next;
-      } else {
-        return [updated, ...prev];
-      }
-    });
+    handleUpdateRecord('students', updated, setStudents);
     setSelectedStudent(null);
-  }, []);
+  }, [cloudEnabled]);
 
   const updateCoach = useCallback((updated: Coach) => {
-    setCoaches(prev => {
-      const index = prev.findIndex(c => c.id === updated.id);
-      if (index !== -1) {
-        const next = [...prev];
-        next[index] = updated;
-        return next;
-      } else {
-        return [updated, ...prev];
-      }
-    });
+    handleUpdateRecord('coaches', updated, setCoaches);
     setSelectedCoach(null);
-  }, []);
+  }, [cloudEnabled]);
 
   const updateOfficer = useCallback((updated: Officer) => {
-    setOfficers(prev => {
-      const index = prev.findIndex(o => o.id === updated.id);
-      if (index !== -1) {
-        const next = [...prev];
-        next[index] = updated;
-        return next;
-      } else {
-        return [updated, ...prev];
-      }
-    });
+    handleUpdateRecord('officers', updated, setOfficers);
     setSelectedOfficer(null);
-  }, []);
-
-  const deleteTournament = useCallback((id: string) => {
-    setTournaments(prev => prev.filter(t => t.id !== id));
-  }, []);
-
-  const deleteAnnouncement = useCallback((id: string) => {
-    setAnnouncements(prev => prev.filter(a => a.id !== id));
-  }, []);
+  }, [cloudEnabled]);
 
   const handleManualSync = async () => {
     if (!cloudEnabled) {
@@ -178,7 +186,7 @@ const App: React.FC = () => {
     setIsSyncing(true);
     try {
       const diagnostic = await checkStorageConfig();
-      alert(diagnostic.ok ? "Cloud connection is active!" : `Cloud Issue: ${diagnostic.message}`);
+      alert(diagnostic.ok ? "Cloud connection is healthy!" : `Cloud Issue: ${diagnostic.message}`);
     } catch (e) {
       alert("Sync check failed.");
     } finally {
@@ -204,25 +212,26 @@ const App: React.FC = () => {
 
   const handleToggleAttendance = (student: Student, date: string) => {
     if (!isCoach) return;
-    const existing = student.attendance.find(r => r.date === date);
+    const existing = (student.attendance || []).find(r => r.date === date);
     let newAttendance: AttendanceRecord[];
     if (existing) {
       newAttendance = student.attendance.map(r => r.date === date ? { ...r, status: r.status === 'present' ? 'absent' : 'present' } : r);
     } else {
-      newAttendance = [{ date, status: 'present' }, ...student.attendance];
+      newAttendance = [{ date, status: 'present' }, ...(student.attendance || [])];
     }
     updateStudent({ ...student, attendance: newAttendance });
   };
 
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-slate-900 gap-4">
-      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      <p className="font-black text-blue-400 uppercase tracking-widest text-[10px]">Portal Booting</p>
+      <div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+      <p className="font-black text-blue-400 uppercase tracking-widest text-[10px]">Cloud Portal Initializing</p>
     </div>
   );
 
   return (
     <div className="min-h-screen pb-24 md:pb-0 md:pl-64 bg-slate-50 selection:bg-blue-100">
+      {/* Sidebar - Remains identical to previous successful versions */}
       <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-slate-900 text-white flex-col p-8 z-40 border-r border-white/5 shadow-2xl">
         <div className="mb-12">
           <div className="flex items-center gap-3">
@@ -339,6 +348,7 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* Tab content logic for Students, Coaches, Officers, Attendance, Schedule, Plans */}
         {activeTab === 'students' && (
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
             <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
@@ -375,98 +385,9 @@ const App: React.FC = () => {
               </div>
             </header>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               {students.filter(s => (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())).map(s => (
+               {(students || []).filter(s => (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())).map(s => (
                  <StudentCard key={s.id} student={s} onClick={() => setSelectedStudent(s)} />
                ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'coaches' && (
-          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-            <header className="flex justify-between items-end px-2">
-               <h2 className="text-5xl font-black tracking-tighter uppercase italic">Staff</h2>
-               {isCoach && (
-                 <button onClick={() => setIsAddingCoach(true)} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">New Staff</button>
-               )}
-            </header>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-               {coaches.map(c => (
-                 <div key={c.id} onClick={() => setSelectedCoach(c)} className="bg-white p-8 rounded-[40px] border border-slate-100 group cursor-pointer hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
-                    <img src={c.profilePic} className="w-24 h-24 rounded-3xl mx-auto object-cover border-4 border-slate-50 mb-6 group-hover:scale-110 transition duration-500" alt={c.name} />
-                    <div className="text-center">
-                       <h3 className="font-black text-slate-800 text-2xl tracking-tight leading-none">{c.name}</h3>
-                       <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-3 bg-blue-50 px-4 py-1.5 rounded-full inline-block border border-blue-100">{c.specialization}</p>
-                    </div>
-                 </div>
-               ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'officers' && (
-          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-            <header className="flex justify-between items-end px-2">
-               <h2 className="text-5xl font-black tracking-tighter uppercase italic">Board</h2>
-               {isCoach && (
-                 <button onClick={() => setIsAddingOfficer(true)} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">Add Officer</button>
-               )}
-            </header>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-               {sortedOfficers.map(off => (
-                 <div key={off.id} onClick={() => setSelectedOfficer(off)} className="bg-white p-8 rounded-[40px] border border-slate-100 text-center hover:shadow-2xl hover:-translate-y-2 transition-all group cursor-pointer">
-                    <img src={off.profilePic} className="w-24 h-24 rounded-[32px] mx-auto object-cover border-4 border-slate-50 mb-6 group-hover:scale-110 transition duration-500" alt="" />
-                    <h3 className="font-black text-slate-800 text-xl tracking-tight leading-none">{off.name}</h3>
-                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-3 bg-blue-50 px-4 py-1.5 rounded-full inline-block border border-blue-100">{off.role}</p>
-                 </div>
-               ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'attendance' && (
-          <div className="space-y-8">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
-              <h2 className="text-5xl font-black tracking-tighter uppercase italic">Attendance</h2>
-              <div className="flex items-center gap-3 bg-white p-3 rounded-3xl border border-slate-200">
-                <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} className="bg-slate-50 px-4 py-2 rounded-2xl font-black text-xs outline-none" />
-              </div>
-            </header>
-            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm overflow-x-auto">
-               <table className="w-full text-left">
-                 <thead>
-                   <tr className="text-[10px] font-black uppercase text-slate-400 border-b">
-                     <th className="pb-6 pl-6">Athlete</th>
-                     <th className="pb-6">Level</th>
-                     <th className="pb-6 text-center">Status</th>
-                     <th className="pb-6 text-right pr-6">Action</th>
-                   </tr>
-                 </thead>
-                 <tbody className="divide-y">
-                   {students.map(s => {
-                     const record = s.attendance.find(r => r.date === attendanceDate);
-                     return (
-                      <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-5 pl-6 font-black text-slate-800 flex items-center gap-4">
-                          <img src={s.profilePic} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" alt="" />
-                          {s.name}
-                        </td>
-                        <td className="py-5"><span className="text-[9px] font-black text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-md">{s.level}</span></td>
-                        <td className="py-5 text-center">
-                           {record ? <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${record.status === 'present' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{record.status}</span> : <span className="text-[10px] font-black text-slate-300">N/A</span>}
-                        </td>
-                        <td className="py-5 text-right pr-6">
-                          {isCoach && (
-                            <button onClick={() => handleToggleAttendance(s, attendanceDate)} className={`p-3 rounded-2xl transition-all ${record?.status === 'present' ? 'bg-emerald-600 text-white shadow-emerald-200 shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                     );
-                   })}
-                 </tbody>
-               </table>
             </div>
           </div>
         )}
@@ -536,68 +457,115 @@ const App: React.FC = () => {
                        ))}
                        {(p.exercises || []).length > 3 && <p className="text-[10px] text-blue-500 font-black mt-2">+ {(p.exercises || []).length - 3} more drills</p>}
                     </div>
-                    <div className="mt-8 pt-6 border-t border-slate-50 flex items-center justify-between">
-                       <span className="text-slate-300 font-black text-[9px] uppercase tracking-widest">Blueprint ID: {p.id.slice(0,6)}</span>
-                       <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-all">→</div>
-                    </div>
                  </div>
                ))}
                {(dailyPlans || []).length === 0 && <div className="col-span-full p-12 text-center text-slate-300 font-black uppercase tracking-[0.2em] bg-white rounded-[40px] border border-dashed">No training plans available</div>}
             </div>
           </div>
         )}
+
+        {/* ... Rest of tabs (Coaches, Officers, Attendance) using similar map logic with defensive checks ... */}
+        {activeTab === 'coaches' && (
+          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+            <header className="flex justify-between items-end px-2">
+               <h2 className="text-5xl font-black tracking-tighter uppercase italic">Staff</h2>
+               {isCoach && (
+                 <button onClick={() => setIsAddingCoach(true)} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">New Staff</button>
+               )}
+            </header>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+               {(coaches || []).map(c => (
+                 <div key={c.id} onClick={() => setSelectedCoach(c)} className="bg-white p-8 rounded-[40px] border border-slate-100 group cursor-pointer hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
+                    <img src={c.profilePic} className="w-24 h-24 rounded-3xl mx-auto object-cover border-4 border-slate-50 mb-6 group-hover:scale-110 transition duration-500" alt={c.name} />
+                    <div className="text-center">
+                       <h3 className="font-black text-slate-800 text-2xl tracking-tight leading-none">{c.name}</h3>
+                       <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-3 bg-blue-50 px-4 py-1.5 rounded-full inline-block border border-blue-100">{c.specialization}</p>
+                    </div>
+                 </div>
+               ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'officers' && (
+          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+            <header className="flex justify-between items-end px-2">
+               <h2 className="text-5xl font-black tracking-tighter uppercase italic">Board</h2>
+               {isCoach && (
+                 <button onClick={() => setIsAddingOfficer(true)} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">Add Officer</button>
+               )}
+            </header>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+               {sortedOfficers.map(off => (
+                 <div key={off.id} onClick={() => setSelectedOfficer(off)} className="bg-white p-8 rounded-[40px] border border-slate-100 text-center hover:shadow-2xl hover:-translate-y-2 transition-all group cursor-pointer">
+                    <img src={off.profilePic} className="w-24 h-24 rounded-[32px] mx-auto object-cover border-4 border-slate-50 mb-6 group-hover:scale-110 transition duration-500" alt="" />
+                    <h3 className="font-black text-slate-800 text-xl tracking-tight leading-none">{off.name}</h3>
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-3 bg-blue-50 px-4 py-1.5 rounded-full inline-block border border-blue-100">{off.role}</p>
+                 </div>
+               ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'attendance' && (
+          <div className="space-y-8">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+              <h2 className="text-5xl font-black tracking-tighter uppercase italic">Attendance</h2>
+              <div className="flex items-center gap-3 bg-white p-3 rounded-3xl border border-slate-200">
+                <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} className="bg-slate-50 px-4 py-2 rounded-2xl font-black text-xs outline-none" />
+              </div>
+            </header>
+            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm overflow-x-auto">
+               <table className="w-full text-left">
+                 <thead>
+                   <tr className="text-[10px] font-black uppercase text-slate-400 border-b">
+                     <th className="pb-6 pl-6">Athlete</th>
+                     <th className="pb-6">Level</th>
+                     <th className="pb-6 text-center">Status</th>
+                     <th className="pb-6 text-right pr-6">Action</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y">
+                   {(students || []).map(s => {
+                     const record = (s.attendance || []).find(r => r.date === attendanceDate);
+                     return (
+                      <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-5 pl-6 font-black text-slate-800 flex items-center gap-4">
+                          <img src={s.profilePic} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" alt="" />
+                          {s.name}
+                        </td>
+                        <td className="py-5"><span className="text-[9px] font-black text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-md">{s.level}</span></td>
+                        <td className="py-5 text-center">
+                           {record ? <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${record.status === 'present' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{record.status}</span> : <span className="text-[10px] font-black text-slate-300">N/A</span>}
+                        </td>
+                        <td className="py-5 text-right pr-6">
+                          {isCoach && (
+                            <button onClick={() => handleToggleAttendance(s, attendanceDate)} className={`p-3 rounded-2xl transition-all ${record?.status === 'present' ? 'bg-emerald-600 text-white shadow-emerald-200 shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                     );
+                   })}
+                 </tbody>
+               </table>
+            </div>
+          </div>
+        )}
       </main>
 
-      {/* Detail Overlays */}
-      {selectedStudent && (
-        <StudentDetail 
-          student={selectedStudent} 
-          tournaments={tournaments} 
-          onClose={() => setSelectedStudent(null)} 
-          onUpdate={updateStudent} 
-          role={user.role} 
-          onDelete={(id) => { setStudents(prev => prev.filter(s => s.id !== id)); setSelectedStudent(null); }} 
-        />
-      )}
-      {selectedCoach && (
-        <CoachDetail 
-          coach={selectedCoach} 
-          canEdit={isCoach} 
-          onClose={() => setSelectedCoach(null)} 
-          onUpdate={updateCoach} 
-          onDelete={(id) => { setCoaches(prev => prev.filter(c => c.id !== id)); setSelectedCoach(null); }} 
-        />
-      )}
-      {isAddingCoach && (
-        <CoachModal onClose={() => setIsAddingCoach(false)} onSave={(c) => { updateCoach(c); setIsAddingCoach(false); }} />
-      )}
-      {selectedOfficer && (
-        <OfficerDetail 
-          officer={selectedOfficer} 
-          onClose={() => setSelectedOfficer(null)} 
-          canEdit={isCoach} 
-          onUpdate={updateOfficer} 
-          onDelete={(id) => { setOfficers(prev => prev.filter(o => o.id !== id)); setSelectedOfficer(null); }} 
-        />
-      )}
-      {isAddingOfficer && (
-        <OfficerModal onClose={() => setIsAddingOfficer(false)} onSave={(o) => { updateOfficer(o); setIsAddingOfficer(false); }} />
-      )}
-      {editingAnnouncement && (
-        <AnnouncementModal announcement={editingAnnouncement} onClose={() => setEditingAnnouncement(null)} onSave={(a) => { setAnnouncements(prev => [a, ...prev.filter(x => x.id !== a.id)]); setEditingAnnouncement(null); }} onDelete={deleteAnnouncement} isCoach={isCoach} />
-      )}
-      {editingTournament && (
-        <TournamentModal tournament={editingTournament} onClose={() => setEditingTournament(null)} isCoach={isCoach} onSave={(t) => { setTournaments(prev => [t, ...prev.filter(x => x.id !== t.id)]); setEditingTournament(null); }} onDelete={deleteTournament} />
-      )}
-      {editingDailyPlan && (
-        <DailyPlanModal plan={editingDailyPlan} onClose={() => setEditingDailyPlan(null)} onSave={(p) => { setDailyPlans(prev => [p, ...prev.filter(x => x.id !== p.id)]); setEditingDailyPlan(null); }} />
-      )}
-      {editingSession && (
-        <SessionModal session={editingSession} onClose={() => setEditingSession(null)} onSave={(s) => { setSessions(prev => [s, ...prev.filter(x => x.id !== s.id)]); setEditingSession(null); }} />
-      )}
-      {showBrandingModal && (
-        <BrandingModal currentName={academyName} currentLogo={academyLogo} currentBanner={academyBanner} onClose={() => setShowBrandingModal(false)} onSave={(n, l, b) => { setAcademyName(n); setAcademyLogo(l); setAcademyBanner(b); setShowBrandingModal(false); }} />
-      )}
+      {/* Detail Overlays & Modals */}
+      {selectedStudent && <StudentDetail student={selectedStudent} tournaments={tournaments} onClose={() => setSelectedStudent(null)} onUpdate={updateStudent} role={user.role} onDelete={(id) => handleDeleteRecord('students', id, setStudents)} />}
+      {selectedCoach && <CoachDetail coach={selectedCoach} canEdit={isCoach} onClose={() => setSelectedCoach(null)} onUpdate={updateCoach} onDelete={(id) => handleDeleteRecord('coaches', id, setCoaches)} />}
+      {isAddingCoach && <CoachModal onClose={() => setIsAddingCoach(false)} onSave={(c) => { updateCoach(c); setIsAddingCoach(false); }} />}
+      {selectedOfficer && <OfficerDetail officer={selectedOfficer} onClose={() => setSelectedOfficer(null)} canEdit={isCoach} onUpdate={updateOfficer} onDelete={(id) => handleDeleteRecord('officers', id, setOfficers)} />}
+      {isAddingOfficer && <OfficerModal onClose={() => setIsAddingOfficer(false)} onSave={(o) => { updateOfficer(o); setIsAddingOfficer(false); }} />}
+      {editingAnnouncement && <AnnouncementModal announcement={editingAnnouncement} onClose={() => setEditingAnnouncement(null)} onSave={(a) => handleUpdateRecord('announcements', a, setAnnouncements).then(() => setEditingAnnouncement(null))} onDelete={(id) => handleDeleteRecord('announcements', id, setAnnouncements)} isCoach={isCoach} />}
+      {editingTournament && <TournamentModal tournament={editingTournament} onClose={() => setEditingTournament(null)} isCoach={isCoach} onSave={(t) => handleUpdateRecord('tournaments', t, setTournaments).then(() => setEditingTournament(null))} onDelete={(id) => handleDeleteRecord('tournaments', id, setTournaments)} />}
+      {editingDailyPlan && <DailyPlanModal plan={editingDailyPlan} onClose={() => setEditingDailyPlan(null)} onSave={(p) => handleUpdateRecord('daily_plans', p, setDailyPlans).then(() => setEditingDailyPlan(null))} />}
+      {editingSession && <SessionModal session={editingSession} onClose={() => setEditingSession(null)} onSave={(s) => handleUpdateRecord('sessions', s, setSessions).then(() => setEditingSession(null))} />}
+      {showBrandingModal && <BrandingModal currentName={academyName} currentLogo={academyLogo} currentBanner={academyBanner} onClose={() => setShowBrandingModal(false)} onSave={(n, l, b) => { setAcademyName(n); setAcademyLogo(l); setAcademyBanner(b); setShowBrandingModal(false); }} />}
 
       {/* Login Modal */}
       {showLoginModal && (

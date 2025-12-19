@@ -1,11 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-/**
- * SUPABASE CONFIGURATION:
- * These values are injected by Vite during the build process on Vercel.
- * Make sure to add SUPABASE_URL and SUPABASE_ANON_KEY to your Vercel Project Settings.
- */
-
 const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
 const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || '').trim();
 
@@ -17,31 +11,40 @@ export const isSupabaseConfigured = () => {
   );
 };
 
-// Initialize with a placeholder if not configured to prevent crashes, 
-// though we check isSupabaseConfigured() before critical actions.
 export const supabase = createClient(
   isSupabaseConfigured() ? supabaseUrl : 'https://placeholder.supabase.co',
   isSupabaseConfigured() ? supabaseAnonKey : 'placeholder'
 );
 
-/**
- * Diagnostic tool to check if the storage bucket is ready.
- */
-export const checkStorageConfig = async () => {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Environment variables missing in Vercel settings." };
-  
-  try {
-    const { data, error } = await supabase.storage.from('academy-assets').list('', { limit: 1 });
-    
-    if (error) {
-      if (error.message.toLowerCase().includes('not found')) {
-        return { ok: false, message: "Bucket 'academy-assets' not found in your Supabase project." };
-      }
-      return { ok: false, message: `Access Error: ${error.message}` };
-    }
-    return { ok: true, message: "Connected to Supabase Storage!" };
-  } catch (e) {
-    return { ok: false, message: "Network connection error. Check CORS settings in Supabase dashboard." };
+// Generic fetcher for table data
+export const fetchData = async (table: string) => {
+  if (!isSupabaseConfigured()) return null;
+  const { data, error } = await supabase.from(table).select('*');
+  if (error) {
+    console.error(`Error fetching ${table}:`, error);
+    return null;
+  }
+  return data;
+};
+
+// Generic upsert (insert or update)
+export const upsertRecord = async (table: string, record: any) => {
+  if (!isSupabaseConfigured()) return null;
+  const { data, error } = await supabase.from(table).upsert(record).select().single();
+  if (error) {
+    console.error(`Error upserting to ${table}:`, error);
+    throw error;
+  }
+  return data;
+};
+
+// Generic delete
+export const deleteRecord = async (table: string, id: string) => {
+  if (!isSupabaseConfigured()) return;
+  const { error } = await supabase.from(table).delete().eq('id', id);
+  if (error) {
+    console.error(`Error deleting from ${table}:`, error);
+    throw error;
   }
 };
 
@@ -78,7 +81,7 @@ export const uploadImage = async (fileBase64: string, folder: string, fileName: 
       });
 
     if (error) {
-      console.warn('Cloud upload failed, falling back to local base64:', error.message);
+      console.warn('Cloud upload failed:', error.message);
       return null;
     }
 
@@ -88,7 +91,17 @@ export const uploadImage = async (fileBase64: string, folder: string, fileName: 
 
     return publicUrl;
   } catch (error) {
-    console.warn('Network error during upload. Using local fallback.');
+    console.warn('Network error during upload.');
     return null;
+  }
+};
+
+export const checkStorageConfig = async () => {
+  if (!isSupabaseConfigured()) return { ok: false, message: "Env missing" };
+  try {
+    const { error } = await supabase.storage.from('academy-assets').list('', { limit: 1 });
+    return error ? { ok: false, message: error.message } : { ok: true, message: "Cloud connected" };
+  } catch (e) {
+    return { ok: false, message: "Network error" };
   }
 };
