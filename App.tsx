@@ -95,7 +95,7 @@ const App: React.FC = () => {
       setOfficers(loadKey('officers', INITIAL_OFFICERS));
       
       const branding = loadKey('branding', { name: 'TALONS ACADEMY', logo: null, banner: null });
-      setAcademyName(branding.name);
+      setAcademyName(branding.name || 'TALONS ACADEMY');
       setAcademyLogo(branding.logo);
       setAcademyBanner(branding.banner);
       
@@ -245,7 +245,7 @@ const App: React.FC = () => {
             { id: 'attendance', label: 'Attendance', icon: '📊' },
             { id: 'officers', label: 'Officers', icon: '👥' },
             { id: 'plans', label: 'Training Plans', icon: '📋' }
-          ].filter(tab => tab.id !== 'plans' || isCoach).map((tab) => (
+          ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
@@ -470,6 +470,82 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {activeTab === 'schedule' && (
+          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+            <header className="flex justify-between items-end px-2">
+               <div>
+                  <h2 className="text-5xl font-black tracking-tighter uppercase italic">Schedule</h2>
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Active Training Slots</p>
+               </div>
+               {isCoach && (
+                 <button onClick={() => setEditingSession({})} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">Add Session</button>
+               )}
+            </header>
+            <div className="space-y-4">
+               {[...(sessions || [])].sort((a,b) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime()).map(s => (
+                 <div key={s.id} onClick={() => isCoach && setEditingSession(s)} className="bg-white p-8 rounded-[40px] border border-slate-100 flex flex-col md:flex-row md:items-center gap-6 group cursor-pointer hover:shadow-xl transition-all">
+                    <div className="w-16 h-16 bg-blue-600 rounded-2xl flex flex-col items-center justify-center text-white shrink-0 shadow-lg shadow-blue-200">
+                       <span className="text-[9px] font-black uppercase leading-none opacity-80">{new Date(s.date || '').toLocaleString('default', { month: 'short' })}</span>
+                       <span className="text-xl font-black leading-none mt-1">{new Date(s.date || '').getDate()}</span>
+                    </div>
+                    <div className="flex-1">
+                       <div className="flex items-center gap-3 mb-1">
+                          <h3 className="font-black text-xl text-slate-800 uppercase tracking-tight">{s.title}</h3>
+                          <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${s.type === 'Special' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>{s.type}</span>
+                       </div>
+                       <p className="text-slate-500 font-bold text-sm">{s.startTime} - {s.endTime} • <span className="text-slate-400 font-medium italic">{s.focus}</span></p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                       {(s.targetLevels || []).map(lvl => (
+                         <span key={lvl} className="text-[8px] font-black uppercase tracking-widest text-slate-400 border border-slate-100 px-3 py-1 rounded-full">{lvl}</span>
+                       ))}
+                    </div>
+                 </div>
+               ))}
+               {(sessions || []).length === 0 && <div className="p-12 text-center text-slate-300 font-black uppercase tracking-[0.2em] bg-white rounded-[40px] border border-dashed">No sessions scheduled</div>}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'plans' && (
+          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+            <header className="flex justify-between items-end px-2">
+               <div>
+                  <h2 className="text-5xl font-black tracking-tighter uppercase italic">Blueprints</h2>
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Training Exercise Plans</p>
+               </div>
+               {isCoach && (
+                 <button onClick={() => setEditingDailyPlan({})} className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">Create Blueprint</button>
+               )}
+            </header>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               {(dailyPlans || []).map(p => (
+                 <div key={p.id} onClick={() => isCoach && setEditingDailyPlan(p)} className="bg-white p-8 rounded-[48px] border border-slate-100 group cursor-pointer hover:shadow-2xl transition-all flex flex-col h-full">
+                    <div className="flex justify-between items-start mb-6">
+                       <span className="text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-4 py-1 rounded-full border border-blue-100">{p.date}</span>
+                       <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest">{p.totalDuration}</span>
+                    </div>
+                    <h3 className="font-black text-2xl text-slate-800 tracking-tight mb-4 uppercase leading-none">{p.title}</h3>
+                    <div className="space-y-3 flex-1">
+                       {(p.exercises || []).slice(0, 3).map((ex, i) => (
+                         <div key={i} className="flex items-center justify-between text-xs py-2 border-b border-slate-50 last:border-0">
+                            <span className="text-slate-600 font-bold">{ex.name}</span>
+                            <span className="text-slate-400 font-medium">{ex.duration}</span>
+                         </div>
+                       ))}
+                       {(p.exercises || []).length > 3 && <p className="text-[10px] text-blue-500 font-black mt-2">+ {(p.exercises || []).length - 3} more drills</p>}
+                    </div>
+                    <div className="mt-8 pt-6 border-t border-slate-50 flex items-center justify-between">
+                       <span className="text-slate-300 font-black text-[9px] uppercase tracking-widest">Blueprint ID: {p.id.slice(0,6)}</span>
+                       <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-all">→</div>
+                    </div>
+                 </div>
+               ))}
+               {(dailyPlans || []).length === 0 && <div className="col-span-full p-12 text-center text-slate-300 font-black uppercase tracking-[0.2em] bg-white rounded-[40px] border border-dashed">No training plans available</div>}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Detail Overlays */}
@@ -541,9 +617,9 @@ const App: React.FC = () => {
 
       {/* Mobile Nav */}
       <nav className="md:hidden fixed bottom-8 left-8 right-8 bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-[40px] flex items-center justify-around py-6 z-40 shadow-3xl">
-        {['dashboard', 'students', 'coaches', 'attendance', 'schedule'].map(id => (
+        {['dashboard', 'students', 'coaches', 'attendance', 'schedule', 'plans'].map(id => (
           <button key={id} onClick={() => setActiveTab(id as any)} className={`text-2xl transition-all ${activeTab === id ? 'text-blue-500 scale-150 -translate-y-1' : 'text-slate-500'}`}>
-            {id === 'dashboard' ? '🏠' : id === 'students' ? '🎾' : id === 'coaches' ? '👔' : id === 'attendance' ? '📊' : '📅'}
+            {id === 'dashboard' ? '🏠' : id === 'students' ? '🎾' : id === 'coaches' ? '👔' : id === 'attendance' ? '📊' : id === 'schedule' ? '📅' : '📋'}
           </button>
         ))}
       </nav>
