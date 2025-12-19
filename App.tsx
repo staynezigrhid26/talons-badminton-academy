@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginError, setLoginError] = useState('');
 
+  // Branding State
   const [academyName, setAcademyName] = useState('TALONS ACADEMY');
   const [academyLogo, setAcademyLogo] = useState<string | null>(null);
   const [academyBanner, setAcademyBanner] = useState<string | null>(null);
@@ -64,10 +65,10 @@ const App: React.FC = () => {
 
       if (isConfigured) {
         try {
-          const [dbStudents, dbCoaches, dbTournaments, dbAnnouncements, dbPlans, dbSessions, dbOfficers] = await Promise.all([
+          const [dbStudents, dbCoaches, dbTournaments, dbAnnouncements, dbPlans, dbSessions, dbOfficers, dbSettings] = await Promise.all([
             fetchData('students'), fetchData('coaches'), fetchData('tournaments'),
             fetchData('announcements'), fetchData('daily_plans'), fetchData('sessions'),
-            fetchData('officers')
+            fetchData('officers'), fetchData('academy_settings')
           ]);
           
           setStudents(dbStudents?.length ? dbStudents : INITIAL_STUDENTS);
@@ -77,33 +78,79 @@ const App: React.FC = () => {
           setDailyPlans(dbPlans?.length ? dbPlans : INITIAL_DAILY_PLANS);
           setSessions(dbSessions?.length ? dbSessions : INITIAL_SESSIONS);
           setOfficers(dbOfficers?.length ? dbOfficers : INITIAL_OFFICERS);
+
+          if (dbSettings && dbSettings.length > 0) {
+            const settings = dbSettings[0];
+            setAcademyName(settings.name || 'TALONS ACADEMY');
+            setAcademyLogo(settings.logo_url || null);
+            setAcademyBanner(settings.banner_url || null);
+          } else {
+            // Fallback to local if no cloud settings record found
+            setAcademyName(localStorage.getItem('talons_academy_name') || 'TALONS ACADEMY');
+            setAcademyLogo(localStorage.getItem('talons_academy_logo'));
+            setAcademyBanner(localStorage.getItem('talons_academy_banner'));
+          }
         } catch (err) {
           console.warn("Using local defaults due to cloud fetch failure.");
-          setStudents(INITIAL_STUDENTS);
-          setCoaches(INITIAL_COACHES);
-          setTournaments(MOCK_TOURNAMENTS);
-          setAnnouncements(INITIAL_ANNOUNCEMENTS);
-          setDailyPlans(INITIAL_DAILY_PLANS);
-          setSessions(INITIAL_SESSIONS);
-          setOfficers(INITIAL_OFFICERS);
+          loadFromLocal();
         }
       } else {
-        const loadKey = (k: string, d: any) => {
-          const s = localStorage.getItem(`talons_${k}`);
-          return s ? JSON.parse(s) : d;
-        };
-        setStudents(loadKey('students', INITIAL_STUDENTS));
-        setCoaches(loadKey('coaches', INITIAL_COACHES));
-        setTournaments(loadKey('tournaments', MOCK_TOURNAMENTS));
-        setAnnouncements(loadKey('announcements', INITIAL_ANNOUNCEMENTS));
-        setDailyPlans(loadKey('plans', INITIAL_DAILY_PLANS));
-        setSessions(loadKey('sessions', INITIAL_SESSIONS));
-        setOfficers(loadKey('officers', INITIAL_OFFICERS));
+        loadFromLocal();
       }
       setLoading(false);
     };
+
+    const loadFromLocal = () => {
+      const loadKey = (k: string, d: any) => {
+        const s = localStorage.getItem(`talons_${k}`);
+        return s ? JSON.parse(s) : d;
+      };
+      setStudents(loadKey('students', INITIAL_STUDENTS));
+      setCoaches(loadKey('coaches', INITIAL_COACHES));
+      setTournaments(loadKey('tournaments', MOCK_TOURNAMENTS));
+      setAnnouncements(loadKey('announcements', INITIAL_ANNOUNCEMENTS));
+      setDailyPlans(loadKey('plans', INITIAL_DAILY_PLANS));
+      setSessions(loadKey('sessions', INITIAL_SESSIONS));
+      setOfficers(loadKey('officers', INITIAL_OFFICERS));
+      setAcademyName(localStorage.getItem('talons_academy_name') || 'TALONS ACADEMY');
+      setAcademyLogo(localStorage.getItem('talons_academy_logo'));
+      setAcademyBanner(localStorage.getItem('talons_academy_banner'));
+    };
+
     fetchEverything();
   }, []);
+
+  const handleApplyBranding = async (name: string, logo: string | null, banner: string | null) => {
+    try {
+      // 1. Update React State
+      setAcademyName(name);
+      setAcademyLogo(logo);
+      setAcademyBanner(banner);
+      setShowBrandingModal(false);
+
+      // 2. Persist to Cloud if enabled
+      if (cloudEnabled) {
+        await upsertRecord('academy_settings', {
+          id: 'main',
+          name: name,
+          logo_url: logo,
+          banner_url: banner
+        });
+      }
+
+      // 3. Persist to Local Storage safely
+      try {
+        localStorage.setItem('talons_academy_name', name);
+        if (logo) localStorage.setItem('talons_academy_logo', logo);
+        if (banner) localStorage.setItem('talons_academy_banner', banner);
+      } catch (localErr) {
+        console.warn("Local storage quota exceeded. Branding saved to database but might not persist locally in base64 mode.");
+      }
+    } catch (err) {
+      console.error("Critical Branding Update Failure:", err);
+      alert("Failed to apply branding. Check your database connection.");
+    }
+  };
 
   const handleUpdateRecord = async (table: string, record: any, stateSetter: React.Dispatch<React.SetStateAction<any[]>>) => {
     if (cloudEnabled) {
@@ -177,14 +224,26 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen pb-24 md:pb-0 md:pl-64 bg-slate-50 selection:bg-blue-100">
       <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-slate-900 text-white flex-col p-8 z-40 border-r border-white/5">
-        <div className="mb-12 flex items-center gap-3">
-          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black italic text-2xl overflow-hidden">
+        <div className="mb-12 flex items-center gap-3 group relative">
+          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black italic text-2xl overflow-hidden shrink-0">
             {academyLogo ? <img src={academyLogo} className="w-full h-full object-cover" /> : academyName.charAt(0)}
           </div>
           <div className="flex-1 overflow-hidden">
             <h1 className="text-sm font-black truncate uppercase">{academyName}</h1>
             <p className="text-[8px] text-blue-400 font-black uppercase tracking-widest mt-1">Academy Pro</p>
           </div>
+          {isCoach && (
+            <button 
+              onClick={() => setShowBrandingModal(true)} 
+              className="absolute -right-2 top-0 p-1.5 bg-white/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/20"
+              title="Branding Settings"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+          )}
         </div>
         <nav className="flex-1 space-y-1">
           {[
@@ -196,7 +255,7 @@ const App: React.FC = () => {
             { id: 'officers', label: 'Officers', icon: '👥' },
             { id: 'plans', label: 'Training Plans', icon: '📋' }
           ]
-          .filter(tab => tab.id !== 'plans' || isCoach) // Restriction added here
+          .filter(tab => tab.id !== 'plans' || isCoach)
           .map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`w-full text-left px-5 py-4 rounded-2xl transition-all font-bold flex items-center gap-4 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/40' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>
               <span>{tab.icon}</span>{tab.label}
@@ -226,7 +285,20 @@ const App: React.FC = () => {
                 <div className="relative z-10">
                   <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-none mb-4 uppercase italic">{academyName}</h1>
                   <p className="text-blue-400 font-black text-xs uppercase tracking-[0.4em]">Elite Management Portal</p>
-                  {isCoach && <button onClick={handleManualSync} disabled={isSyncing} className="mt-8 bg-emerald-600 px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-xl">Cloud Status</button>}
+                  {isCoach && (
+                    <div className="mt-8 flex flex-wrap gap-4">
+                      <button onClick={handleManualSync} disabled={isSyncing} className="bg-emerald-600 px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-xl flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+                        Cloud Status
+                      </button>
+                      <button onClick={() => setShowBrandingModal(true)} className="bg-white/10 backdrop-blur-md border border-white/20 px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-xl hover:bg-white/20 transition-all flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        Edit Identity
+                      </button>
+                    </div>
+                  )}
                 </div>
              </div>
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -428,7 +500,15 @@ const App: React.FC = () => {
       {editingTournament && <TournamentModal tournament={editingTournament} onClose={() => setEditingTournament(null)} isCoach={isCoach} onSave={(t) => handleUpdateRecord('tournaments', t, setTournaments).then(() => setEditingTournament(null))} onDelete={(id) => handleDeleteRecord('tournaments', id, setTournaments)} />}
       {editingDailyPlan && <DailyPlanModal plan={editingDailyPlan} onClose={() => setEditingDailyPlan(null)} onSave={(p) => handleUpdateRecord('daily_plans', p, setDailyPlans).then(() => setEditingDailyPlan(null))} />}
       {editingSession && <SessionModal session={editingSession} onClose={() => setEditingSession(null)} onSave={(s) => handleUpdateRecord('sessions', s, setSessions).then(() => setEditingSession(null))} />}
-      {showBrandingModal && <BrandingModal currentName={academyName} currentLogo={academyLogo} currentBanner={academyBanner} onClose={() => setShowBrandingModal(false)} onSave={(n, l, b) => { setAcademyName(n); setAcademyLogo(l); setAcademyBanner(b); setShowBrandingModal(false); }} />}
+      {showBrandingModal && (
+        <BrandingModal 
+          currentName={academyName} 
+          currentLogo={academyLogo} 
+          currentBanner={academyBanner} 
+          onClose={() => setShowBrandingModal(false)} 
+          onSave={handleApplyBranding} 
+        />
+      )}
 
       {showLoginModal && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[100] flex items-center justify-center p-6">
@@ -446,7 +526,7 @@ const App: React.FC = () => {
 
       <nav className="md:hidden fixed bottom-8 left-8 right-8 bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-[40px] flex items-center justify-around py-6 z-40 shadow-3xl">
         {['dashboard', 'students', 'coaches', 'attendance', 'schedule', 'plans']
-          .filter(id => id !== 'plans' || isCoach) // Restriction added here
+          .filter(id => id !== 'plans' || isCoach)
           .map(id => (
           <button key={id} onClick={() => setActiveTab(id as any)} className={`text-2xl transition-all ${activeTab === id ? 'text-blue-500 scale-150 -translate-y-1' : 'text-slate-500'}`}>
             {id === 'dashboard' ? '🏠' : id === 'students' ? '🎾' : id === 'coaches' ? '👔' : id === 'attendance' ? '📊' : id === 'schedule' ? '📅' : '📋'}

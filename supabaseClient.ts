@@ -11,6 +11,7 @@ import { createClient } from '@supabase/supabase-js';
  * CREATE TABLE announcements (id TEXT PRIMARY KEY, title TEXT, content TEXT, date DATE, author TEXT);
  * CREATE TABLE daily_plans (id TEXT PRIMARY KEY, date DATE, start_time TEXT, end_time TEXT, total_duration TEXT, title TEXT, exercises JSONB DEFAULT '[]'::jsonb, notes TEXT);
  * CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT, date DATE, start_time TEXT, end_time TEXT, focus TEXT, type TEXT, target_levels JSONB DEFAULT '[]'::jsonb);
+ * CREATE TABLE academy_settings (id TEXT PRIMARY KEY, name TEXT, logo_url TEXT, banner_url TEXT);
  * 
  * ALTER TABLE students DISABLE ROW LEVEL SECURITY;
  * ALTER TABLE coaches DISABLE ROW LEVEL SECURITY;
@@ -19,6 +20,7 @@ import { createClient } from '@supabase/supabase-js';
  * ALTER TABLE announcements DISABLE ROW LEVEL SECURITY;
  * ALTER TABLE daily_plans DISABLE ROW LEVEL SECURITY;
  * ALTER TABLE sessions DISABLE ROW LEVEL SECURITY;
+ * ALTER TABLE academy_settings DISABLE ROW LEVEL SECURITY;
  * 
  * IMPORTANT: Create a Public Storage Bucket named 'academy-assets'.
  */
@@ -75,21 +77,28 @@ export const deleteRecord = async (table: string, id: string) => {
 };
 
 export const uploadImage = async (fileBase64: string, folder: string, fileName: string) => {
-  if (!isSupabaseConfigured()) return null;
+  if (!isSupabaseConfigured() || !fileBase64 || !fileBase64.includes(',')) return null;
   try {
     const base64Parts = fileBase64.split(',');
     const base64Data = base64Parts.length > 1 ? base64Parts[1] : base64Parts[0];
-    const byteCharacters = atob(base64Data);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'image/png' });
-    const cleanFileName = (fileName || 'unnamed').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const path = `${folder}/${cleanFileName}-${Date.now()}.png`;
-    const { error } = await supabase.storage.from('academy-assets').upload(path, blob, { contentType: 'image/png', upsert: true });
-    if (error) throw error;
-    const { data: { publicUrl } } = supabase.storage.from('academy-assets').getPublicUrl(path);
-    return publicUrl;
+    
+    // Safety check for valid base64
+    try {
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'image/png' });
+      const cleanFileName = (fileName || 'unnamed').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const path = `${folder}/${cleanFileName}-${Date.now()}.png`;
+      const { error } = await supabase.storage.from('academy-assets').upload(path, blob, { contentType: 'image/png', upsert: true });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('academy-assets').getPublicUrl(path);
+      return publicUrl;
+    } catch (atobErr) {
+      console.error('Invalid Base64 Data Provided');
+      return null;
+    }
   } catch (error) {
     console.error('Upload Error:', error);
     return null;
