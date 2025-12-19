@@ -18,7 +18,8 @@ const CoachModal: React.FC<CoachModalProps> = ({ onClose, onSave }) => {
     specialization: '',
     age: 25,
     phone: '',
-    profilePic: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`
+    // Fix: Use profile_pic instead of profilePic
+    profile_pic: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,13 +32,15 @@ const CoachModal: React.FC<CoachModalProps> = ({ onClose, onSave }) => {
         const base64 = reader.result as string;
         
         // Optimistic local preview
-        setFormData(prev => ({ ...prev, profilePic: base64 }));
+        // Fix: Use profile_pic instead of profilePic
+        setFormData(prev => ({ ...prev, profile_pic: base64 }));
 
         if (isSupabaseConfigured()) {
           setIsUploading(true);
           const cloudUrl = await uploadImage(base64, 'coaches', formData.name || 'new_coach');
           if (cloudUrl) {
-            setFormData(prev => ({ ...prev, profilePic: cloudUrl }));
+            // Fix: Use profile_pic instead of profilePic
+            setFormData(prev => ({ ...prev, profile_pic: cloudUrl }));
           }
           setIsUploading(false);
         }
@@ -71,7 +74,8 @@ const CoachModal: React.FC<CoachModalProps> = ({ onClose, onSave }) => {
           <div className="flex flex-col items-center mb-4">
             <div className="relative group">
               <img 
-                src={formData.profilePic} 
+                // Fix: Use profile_pic instead of profilePic
+                src={formData.profile_pic} 
                 className={`w-24 h-24 rounded-full object-cover ring-4 ring-blue-50 shadow-md ${isUploading ? 'animate-pulse opacity-50' : ''}`} 
                 alt="Preview" 
               />

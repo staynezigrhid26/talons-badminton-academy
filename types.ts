@@ -1,4 +1,3 @@
-
 export enum SkillLevel {
   BEGINNER = 'Beginner',
   INTERMEDIATE = 'Intermediate',
@@ -23,11 +22,11 @@ export interface TrainingSession {
   id: string;
   title: string;
   date: string;
-  startTime: string;
-  endTime: string;
+  start_time: string;
+  end_time: string;
   focus: string;
   type: 'Regular' | 'Special' | 'Tournament Prep';
-  targetLevels: SkillLevel[];
+  target_levels: SkillLevel[];
 }
 
 export interface Exercise {
@@ -36,26 +35,23 @@ export interface Exercise {
   description?: string;
 }
 
-export interface TrainingPlan {
+export interface DailyPlan {
   id: string;
   date: string;
-  startTime: string;
-  endTime: string;
-  totalDuration: string;
+  start_time: string;
+  end_time: string;
+  total_duration: string;
   title: string;
   exercises: Exercise[];
   notes?: string;
 }
 
-export interface DailyPlan {
+export interface MonthlyProgram {
   id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  totalDuration: string;
+  month: string;
   title: string;
-  exercises: Exercise[];
-  notes?: string;
+  description: string;
+  goals: string[];
 }
 
 export interface Tournament {
@@ -75,25 +71,16 @@ export interface Announcement {
   author: string;
 }
 
-export interface MonthlyProgram {
-  id: string;
-  month: string; // "YYYY-MM"
-  title: string;
-  description: string;
-  goals: string[];
-}
-
 export interface Student {
   id: string;
   name: string;
   age: number;
   birthday: string;
-  profilePic: string;
+  profile_pic: string;
   level: SkillLevel;
-  healthStatus: HealthStatus;
+  health_status: HealthStatus;
   attendance: AttendanceRecord[];
-  tournamentIds?: string[]; // IDs of tournaments the student is joining
-  trainingPlanId?: string;
+  tournament_ids?: string[];
   notes: string;
 }
 
@@ -103,7 +90,7 @@ export interface Coach {
   email: string;
   password?: string;
   specialization: string;
-  profilePic: string;
+  profile_pic: string;
   age: number;
   phone: string;
 }
@@ -112,11 +99,11 @@ export interface Officer {
   id: string;
   name: string;
   role: string;
-  profilePic: string;
+  profile_pic: string;
   contact?: string;
 }
 
-export type UserRole = 'coach' | 'student'; // 'student' here acts as public guest
+export type UserRole = 'coach' | 'student';
 
 export interface UserState {
   isLoggedIn: boolean;

@@ -9,12 +9,13 @@ interface DailyPlanModalProps {
 }
 
 const DailyPlanModal: React.FC<DailyPlanModalProps> = ({ plan, onClose, onSave }) => {
+  // Fix: Use snake_case property names to match DailyPlan interface
   const [formData, setFormData] = useState<Partial<DailyPlan>>({
     id: plan.id || `dp${Date.now()}`,
     date: plan.date || new Date().toISOString().split('T')[0],
-    startTime: plan.startTime || '04:00 PM',
-    endTime: plan.endTime || '06:00 PM',
-    totalDuration: plan.totalDuration || '120 mins',
+    start_time: plan.start_time || '04:00 PM',
+    end_time: plan.end_time || '06:00 PM',
+    total_duration: plan.total_duration || '120 mins',
     title: plan.title || '',
     exercises: plan.exercises || [{ name: '', duration: '' }],
     notes: plan.notes || ''
@@ -81,8 +82,9 @@ const DailyPlanModal: React.FC<DailyPlanModalProps> = ({ plan, onClose, onSave }
               <input 
                 required
                 className="w-full bg-slate-50 border-2 border-slate-100 p-3 rounded-2xl outline-none focus:border-blue-600 font-bold text-xs"
-                value={formData.startTime}
-                onChange={(e) => setFormData({...formData, startTime: e.target.value})}
+                // Fix: Use start_time instead of startTime
+                value={formData.start_time}
+                onChange={(e) => setFormData({...formData, start_time: e.target.value})}
                 placeholder="04:00 PM"
               />
             </div>
@@ -91,8 +93,9 @@ const DailyPlanModal: React.FC<DailyPlanModalProps> = ({ plan, onClose, onSave }
               <input 
                 required
                 className="w-full bg-slate-50 border-2 border-slate-100 p-3 rounded-2xl outline-none focus:border-blue-600 font-bold text-xs"
-                value={formData.endTime}
-                onChange={(e) => setFormData({...formData, endTime: e.target.value})}
+                // Fix: Use end_time instead of endTime
+                value={formData.end_time}
+                onChange={(e) => setFormData({...formData, end_time: e.target.value})}
                 placeholder="06:00 PM"
               />
             </div>
@@ -101,8 +104,9 @@ const DailyPlanModal: React.FC<DailyPlanModalProps> = ({ plan, onClose, onSave }
               <input 
                 required
                 className="w-full bg-slate-50 border-2 border-slate-100 p-3 rounded-2xl outline-none focus:border-blue-600 font-bold text-xs"
-                value={formData.totalDuration}
-                onChange={(e) => setFormData({...formData, totalDuration: e.target.value})}
+                // Fix: Use total_duration instead of totalDuration
+                value={formData.total_duration}
+                onChange={(e) => setFormData({...formData, total_duration: e.target.value})}
                 placeholder="120 mins"
               />
             </div>

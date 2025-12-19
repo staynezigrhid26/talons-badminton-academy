@@ -1,25 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * 🛠️ SUPABASE SQL EDITOR SCRIPT
- * Run this in your Supabase SQL Editor to prepare your database:
+ * 🛠️ UPDATED SUPABASE SQL EDITOR SCRIPT (Simplified / Lowercase Only)
+ * Run this in your Supabase SQL Editor:
  * 
- * -- Students Table
- * CREATE TABLE students (id TEXT PRIMARY KEY, name TEXT, age INT, birthday DATE, "profilePic" TEXT, level TEXT, "healthStatus" TEXT, attendance JSONB DEFAULT '[]'::jsonb, "tournamentIds" JSONB DEFAULT '[]'::jsonb, notes TEXT);
- * -- Coaches Table
- * CREATE TABLE coaches (id TEXT PRIMARY KEY, name TEXT, email TEXT UNIQUE, password TEXT, specialization TEXT, "profilePic" TEXT, age INT, phone TEXT);
- * -- Officers Table
- * CREATE TABLE officers (id TEXT PRIMARY KEY, name TEXT, role TEXT, "profilePic" TEXT, contact TEXT);
- * -- Tournaments Table
+ * CREATE TABLE students (id TEXT PRIMARY KEY, name TEXT, age INT, birthday DATE, profile_pic TEXT, level TEXT, health_status TEXT, attendance JSONB DEFAULT '[]'::jsonb, tournament_ids JSONB DEFAULT '[]'::jsonb, notes TEXT);
+ * CREATE TABLE coaches (id TEXT PRIMARY KEY, name TEXT, email TEXT UNIQUE, password TEXT, specialization TEXT, profile_pic TEXT, age INT, phone TEXT);
+ * CREATE TABLE officers (id TEXT PRIMARY KEY, name TEXT, role TEXT, profile_pic TEXT, contact TEXT);
  * CREATE TABLE tournaments (id TEXT PRIMARY KEY, name TEXT, date DATE, location TEXT, categories JSONB DEFAULT '[]'::jsonb, description TEXT);
- * -- Announcements Table
  * CREATE TABLE announcements (id TEXT PRIMARY KEY, title TEXT, content TEXT, date DATE, author TEXT);
- * -- Daily Plans Table
- * CREATE TABLE daily_plans (id TEXT PRIMARY KEY, date DATE, "startTime" TEXT, "endTime" TEXT, "totalDuration" TEXT, title TEXT, exercises JSONB DEFAULT '[]'::jsonb, notes TEXT);
- * -- Sessions Table
- * CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT, date DATE, "startTime" TEXT, "endTime" TEXT, focus TEXT, type TEXT, "targetLevels" JSONB DEFAULT '[]'::jsonb);
+ * CREATE TABLE daily_plans (id TEXT PRIMARY KEY, date DATE, start_time TEXT, end_time TEXT, total_duration TEXT, title TEXT, exercises JSONB DEFAULT '[]'::jsonb, notes TEXT);
+ * CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT, date DATE, start_time TEXT, end_time TEXT, focus TEXT, type TEXT, target_levels JSONB DEFAULT '[]'::jsonb);
  * 
- * -- DISABLE RLS (For rapid development, enable policies later for production)
  * ALTER TABLE students DISABLE ROW LEVEL SECURITY;
  * ALTER TABLE coaches DISABLE ROW LEVEL SECURITY;
  * ALTER TABLE officers DISABLE ROW LEVEL SECURITY;
@@ -28,7 +20,7 @@ import { createClient } from '@supabase/supabase-js';
  * ALTER TABLE daily_plans DISABLE ROW LEVEL SECURITY;
  * ALTER TABLE sessions DISABLE ROW LEVEL SECURITY;
  * 
- * IMPORTANT: Create a Public Storage Bucket named 'academy-assets' in Supabase Storage.
+ * IMPORTANT: Create a Public Storage Bucket named 'academy-assets'.
  */
 
 const supabaseUrl = (process.env.SUPABASE_URL || '').trim();

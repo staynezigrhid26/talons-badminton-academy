@@ -28,13 +28,15 @@ const OfficerDetail: React.FC<OfficerDetailProps> = ({ officer, onClose, onUpdat
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64 = reader.result as string;
-        setFormData(prev => ({ ...prev, profilePic: base64 }));
+        // Fix: Use profile_pic instead of profilePic
+        setFormData(prev => ({ ...prev, profile_pic: base64 }));
 
         if (isSupabaseConfigured()) {
           setIsUploading(true);
           const cloudUrl = await uploadImage(base64, 'officers', formData.name);
           if (cloudUrl) {
-            setFormData(prev => ({ ...prev, profilePic: cloudUrl }));
+            // Fix: Use profile_pic instead of profilePic
+            setFormData(prev => ({ ...prev, profile_pic: cloudUrl }));
           }
           setIsUploading(false);
         }
@@ -71,7 +73,8 @@ const OfficerDetail: React.FC<OfficerDetailProps> = ({ officer, onClose, onUpdat
            <div className="flex flex-col items-center gap-4">
               <div className="relative group">
                 <img 
-                  src={formData.profilePic} 
+                  // Fix: Use profile_pic instead of profilePic
+                  src={formData.profile_pic} 
                   alt={formData.name} 
                   className={`w-32 h-32 rounded-full object-cover ring-4 ring-blue-100 shadow-md transition-all group-hover:ring-blue-200 ${isUploading ? 'animate-pulse opacity-50' : ''}`} 
                 />
@@ -118,7 +121,7 @@ const OfficerDetail: React.FC<OfficerDetailProps> = ({ officer, onClose, onUpdat
                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Contact #</label>
                     <input 
                       className="w-full mt-1 p-3 border rounded-xl bg-slate-50 font-bold outline-none focus:border-blue-600 transition-all"
-                      value={formData.contact}
+                      value={formData.contact || ''}
                       onChange={(e) => setFormData({...formData, contact: e.target.value})}
                     />
                   </div>

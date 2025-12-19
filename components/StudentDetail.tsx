@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Student, SkillLevel, HealthStatus, AttendanceRecord, UserRole, Tournament } from '../types';
+import { Student, SkillLevel, HealthStatus, UserRole, Tournament } from '../types';
 import { generateTrainingPlanSuggestion } from '../geminiService';
 import { uploadImage, isSupabaseConfigured } from '../supabaseClient';
 
@@ -10,18 +10,17 @@ interface StudentDetailProps {
   onUpdate: (updatedStudent: Student) => void;
   onDelete?: (id: string) => void;
   role: UserRole;
+  isLoggedIn: boolean;
 }
 
-const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onClose, onUpdate, onDelete, role }) => {
-  // If the student name is empty, it's a new student - start in edit mode
+const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onClose, onUpdate, onDelete, role, isLoggedIn }) => {
   const [isEditing, setIsEditing] = useState(!student.name);
   const [formData, setFormData] = useState<Student>(student);
   const [aiPlan, setAiPlan] = useState<{ weeklyFocus: string; exercises: string[] } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const isCoach = role === 'coach';
+  const isCoach = role === 'coach' && isLoggedIn;
 
-  // Use a ref-like check to only update formData if the ID actually changed or we get a fresh prop
   useEffect(() => {
     setFormData(student);
     setIsEditing(!student.name);
@@ -29,16 +28,15 @@ const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onC
 
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.name.trim()) {
+    if (!formData.name?.trim()) {
       alert("Athlete name is required.");
       return;
     }
-    // Call parent update directly. 
-    // Parent should set selectedStudent to null, which unmounts this.
     onUpdate(formData);
   };
 
   const handleGeneratePlan = async () => {
+    if (!isCoach) return;
     setIsGenerating(true);
     const suggestion = await generateTrainingPlanSuggestion(formData);
     if (suggestion) setAiPlan(suggestion);
@@ -46,11 +44,11 @@ const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onC
   };
 
   const toggleTournament = (tournamentId: string) => {
-    const currentIds = formData.tournamentIds || [];
+    const currentIds = formData.tournament_ids || [];
     const newIds = currentIds.includes(tournamentId)
       ? currentIds.filter(id => id !== tournamentId)
       : [...currentIds, tournamentId];
-    setFormData({ ...formData, tournamentIds: newIds });
+    setFormData({ ...formData, tournament_ids: newIds });
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,14 +57,14 @@ const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onC
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64 = reader.result as string;
-        setFormData(prev => ({ ...prev, profilePic: base64 }));
+        setFormData(prev => ({ ...prev, profile_pic: base64 }));
         if (isSupabaseConfigured()) {
           setIsUploading(true);
           try {
             const cloudUrl = await uploadImage(base64, 'students', formData.name || 'new_student');
-            if (cloudUrl) setFormData(prev => ({ ...prev, profilePic: cloudUrl }));
+            if (cloudUrl) setFormData(prev => ({ ...prev, profile_pic: cloudUrl }));
           } catch (err) {
-            console.error("Upload failed but continuing with local image.", err);
+            console.error("Upload failed.", err);
           } finally {
             setIsUploading(false);
           }
@@ -87,8 +85,8 @@ const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onC
     }
   };
 
-  const isDismissed = formData.healthStatus === HealthStatus.DISMISSED;
-  const joinedTournaments = tournaments.filter(t => formData.tournamentIds?.includes(t.id));
+  const isDismissed = formData.health_status === HealthStatus.DISMISSED;
+  const joinedTournaments = tournaments.filter(t => formData.tournament_ids?.includes(t.id));
 
   return (
     <div className="fixed inset-0 z-50 bg-white md:bg-black/40 md:flex md:items-center md:justify-center p-0 md:p-4 overflow-y-auto backdrop-blur-sm">
@@ -108,7 +106,7 @@ const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onC
                 disabled={isUploading}
                 className={`px-5 py-2 rounded-full text-sm font-bold shadow-sm transition-all ${isEditing ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-blue-600 bg-blue-50 hover:bg-blue-100'}`}
               >
-                {isEditing ? (isUploading ? 'Uploading...' : 'Save Changes') : 'Edit Profile'}
+                {isEditing ? (isUploading ? 'Syncing...' : 'Save Changes') : 'Edit Profile'}
               </button>
             )}
             {!isEditing && <div className="w-10"></div>}
@@ -119,7 +117,7 @@ const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onC
           <div className="flex flex-col items-center gap-4">
             <div className="relative group">
               <img 
-                src={formData.profilePic} 
+                src={formData.profile_pic} 
                 alt={formData.name || 'New Player'} 
                 className={`w-32 h-32 rounded-full object-cover ring-4 ring-blue-50 shadow-lg transition-all ${isDismissed && !isEditing ? 'grayscale opacity-40 scale-95' : ''} ${isUploading ? 'animate-pulse opacity-50' : ''}`} 
               />
@@ -159,7 +157,7 @@ const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onC
                   </div>
                   <div>
                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Health Status</label>
-                    <select className="w-full mt-1 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 bg-slate-50 font-medium outline-none" value={formData.healthStatus} onChange={(e) => setFormData({...formData, healthStatus: e.target.value as HealthStatus})}>
+                    <select className="w-full mt-1 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 bg-slate-50 font-medium outline-none" value={formData.health_status} onChange={(e) => setFormData({...formData, health_status: e.target.value as HealthStatus})}>
                       {Object.values(HealthStatus).map(h => <option key={h} value={h}>{h}</option>)}
                     </select>
                   </div>
@@ -172,9 +170,9 @@ const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onC
                   <span className="text-slate-500 font-medium">{formData.age} yrs old • {formData.birthday ? new Date(formData.birthday).toLocaleDateString() : 'N/A'}</span>
                   <span className="text-blue-600 font-bold uppercase tracking-wider text-xs">{formData.level}</span>
                 </div>
-                <div className={`mt-3 px-4 py-1.5 rounded-full border text-xs font-black uppercase tracking-widest inline-flex items-center gap-2 shadow-sm transition-all ${getHealthStatusColor(formData.healthStatus)}`}>
-                  <span className={`w-2 h-2 rounded-full ${formData.healthStatus === HealthStatus.FIT ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                  {formData.healthStatus}
+                <div className={`mt-3 px-4 py-1.5 rounded-full border text-xs font-black uppercase tracking-widest inline-flex items-center gap-2 shadow-sm transition-all ${getHealthStatusColor(formData.health_status)}`}>
+                  <span className={`w-2 h-2 rounded-full ${formData.health_status === HealthStatus.FIT ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                  {formData.health_status}
                 </div>
               </div>
             )}
@@ -185,7 +183,7 @@ const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onC
           {/* Tournaments Section */}
           <section className="bg-slate-900 text-white p-6 rounded-[32px] shadow-xl">
              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2 uppercase">
+                <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2">
                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                    </svg>
@@ -197,7 +195,7 @@ const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onC
                   {tournaments.length === 0 ? <p className="text-[10px] text-slate-500">No active tournaments available.</p> : tournaments.map(t => (
                     <label key={t.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10 transition">
                        <span className="font-bold">{t.name}</span>
-                       <input type="checkbox" checked={formData.tournamentIds?.includes(t.id)} onChange={() => toggleTournament(t.id)} />
+                       <input type="checkbox" checked={formData.tournament_ids?.includes(t.id)} onChange={() => toggleTournament(t.id)} />
                     </label>
                   ))}
                </div>
@@ -222,7 +220,25 @@ const StudentDetail: React.FC<StudentDetailProps> = ({ student, tournaments, onC
              {isEditing ? (
                 <textarea className="w-full p-4 border border-slate-200 rounded-2xl h-32 text-sm outline-none focus:border-blue-600" value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} placeholder="Strengths, weaknesses, and focus..." />
              ) : (
-                <p className="text-sm text-slate-600 italic whitespace-pre-wrap leading-relaxed">{formData.notes || "No notes provided."}</p>
+                <div className="space-y-4">
+                   <p className="text-sm text-slate-600 italic whitespace-pre-wrap leading-relaxed">{formData.notes || "No notes provided."}</p>
+                   
+                   {/* Restricted AI Training Plan Display */}
+                   {aiPlan && isCoach && (
+                      <div className="mt-4 p-4 bg-blue-600 text-white rounded-2xl shadow-lg animate-in fade-in slide-in-from-bottom-2">
+                         <h5 className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">AI Strategy Blueprint</h5>
+                         <p className="font-bold mb-3">{aiPlan.weeklyFocus}</p>
+                         <ul className="space-y-1">
+                            {aiPlan.exercises.map((ex, i) => (
+                               <li key={i} className="text-xs flex items-center gap-2">
+                                  <span className="w-1 h-1 bg-white rounded-full"></span>
+                                  {ex}
+                               </li>
+                            ))}
+                         </ul>
+                      </div>
+                   )}
+                </div>
              )}
           </section>
 

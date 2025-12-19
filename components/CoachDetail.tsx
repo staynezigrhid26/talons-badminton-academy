@@ -31,13 +31,15 @@ const CoachDetail: React.FC<CoachDetailProps> = ({ coach, onClose, onUpdate, onD
         const base64 = reader.result as string;
         
         // Optimistic preview
-        setFormData(prev => ({ ...prev, profilePic: base64 }));
+        // Fix: Use profile_pic instead of profilePic
+        setFormData(prev => ({ ...prev, profile_pic: base64 }));
 
         if (isSupabaseConfigured()) {
           setIsUploading(true);
           const cloudUrl = await uploadImage(base64, 'coaches', formData.name);
           if (cloudUrl) {
-            setFormData(prev => ({ ...prev, profilePic: cloudUrl }));
+            // Fix: Use profile_pic instead of profilePic
+            setFormData(prev => ({ ...prev, profile_pic: cloudUrl }));
           }
           setIsUploading(false);
         }
@@ -74,7 +76,8 @@ const CoachDetail: React.FC<CoachDetailProps> = ({ coach, onClose, onUpdate, onD
            <div className="flex flex-col items-center gap-4">
               <div className="relative group">
                 <img 
-                  src={formData.profilePic} 
+                  // Fix: Use profile_pic instead of profilePic
+                  src={formData.profile_pic} 
                   alt={formData.name} 
                   className={`w-32 h-32 rounded-full object-cover ring-4 ring-blue-100 shadow-lg ${isUploading ? 'animate-pulse opacity-50' : ''}`} 
                 />
@@ -145,7 +148,7 @@ const CoachDetail: React.FC<CoachDetailProps> = ({ coach, onClose, onUpdate, onD
                         <input 
                           type={showPassword ? "text" : "password"}
                           className="w-full mt-1 p-3 border rounded-xl bg-slate-50 font-bold outline-none focus:border-blue-600 transition-all pr-12"
-                          value={formData.password}
+                          value={formData.password || ''}
                           onChange={(e) => setFormData({...formData, password: e.target.value})}
                         />
                         <button 

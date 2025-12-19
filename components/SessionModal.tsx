@@ -9,25 +9,27 @@ interface SessionModalProps {
 }
 
 const SessionModal: React.FC<SessionModalProps> = ({ session, onClose, onSave }) => {
+  // Fix: Use snake_case property names to match TrainingSession interface
   const [formData, setFormData] = useState<Partial<TrainingSession>>({
     id: session.id || `sess${Date.now()}`,
     title: session.title || 'General Training',
     date: session.date || new Date().toISOString().split('T')[0],
-    startTime: session.startTime || '04:00 PM',
-    endTime: session.endTime || '06:00 PM',
+    start_time: session.start_time || '04:00 PM',
+    end_time: session.end_time || '06:00 PM',
     focus: session.focus || 'Drills & Matches',
     type: session.type || 'Regular',
-    targetLevels: session.targetLevels || [SkillLevel.BEGINNER]
+    target_levels: session.target_levels || [SkillLevel.BEGINNER]
   });
 
   const toggleLevel = (level: SkillLevel) => {
-    const current = formData.targetLevels || [];
+    // Fix: Use target_levels instead of targetLevels
+    const current = formData.target_levels || [];
     if (current.includes(level)) {
       if (current.length > 1) {
-        setFormData({ ...formData, targetLevels: current.filter(l => l !== level) });
+        setFormData({ ...formData, target_levels: current.filter(l => l !== level) });
       }
     } else {
-      setFormData({ ...formData, targetLevels: [...current, level] });
+      setFormData({ ...formData, target_levels: [...current, level] });
     }
   };
 
@@ -66,7 +68,8 @@ const SessionModal: React.FC<SessionModalProps> = ({ session, onClose, onSave })
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Target Skill Levels (Multi-select)</label>
             <div className="flex flex-wrap gap-2 mt-2">
               {Object.values(SkillLevel).map(level => {
-                const isActive = formData.targetLevels?.includes(level);
+                // Fix: Use target_levels instead of targetLevels
+                const isActive = formData.target_levels?.includes(level);
                 return (
                   <button
                     key={level}
@@ -112,8 +115,9 @@ const SessionModal: React.FC<SessionModalProps> = ({ session, onClose, onSave })
               <input 
                 required
                 className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-600 font-bold text-sm"
-                value={formData.startTime}
-                onChange={(e) => setFormData({...formData, startTime: e.target.value})}
+                // Fix: Use start_time instead of startTime
+                value={formData.start_time}
+                onChange={(e) => setFormData({...formData, start_time: e.target.value})}
                 placeholder="04:00 PM"
               />
             </div>
@@ -122,8 +126,9 @@ const SessionModal: React.FC<SessionModalProps> = ({ session, onClose, onSave })
               <input 
                 required
                 className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-600 font-bold text-sm"
-                value={formData.endTime}
-                onChange={(e) => setFormData({...formData, endTime: e.target.value})}
+                // Fix: Use end_time instead of endTime
+                value={formData.end_time}
+                onChange={(e) => setFormData({...formData, end_time: e.target.value})}
                 placeholder="06:00 PM"
               />
             </div>

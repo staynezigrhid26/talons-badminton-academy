@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Student, SkillLevel, HealthStatus } from '../types';
 
@@ -32,22 +31,22 @@ const StudentCard: React.FC<StudentCardProps> = ({ student, onClick }) => {
   return (
     <div 
       onClick={onClick}
-      className={`bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center gap-4 cursor-pointer hover:shadow-md transition-all active:scale-[0.98] ${student.healthStatus === HealthStatus.DISMISSED ? 'grayscale-[0.5] opacity-80' : ''}`}
+      className={`bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center gap-4 cursor-pointer hover:shadow-md transition-all active:scale-[0.98] ${student.health_status === HealthStatus.DISMISSED ? 'grayscale-[0.5] opacity-80' : ''}`}
     >
       <img 
-        src={student.profilePic} 
+        src={student.profile_pic} 
         alt={student.name} 
-        className={`w-16 h-16 rounded-full object-cover border-2 border-slate-100 ${student.healthStatus === HealthStatus.DISMISSED ? 'opacity-50' : ''}`}
+        className={`w-16 h-16 rounded-full object-cover border-2 border-slate-100 ${student.health_status === HealthStatus.DISMISSED ? 'opacity-50' : ''}`}
       />
       <div className="flex-1">
-        <h3 className={`font-bold text-slate-800 text-lg leading-tight ${student.healthStatus === HealthStatus.DISMISSED ? 'text-slate-400 line-through' : ''}`}>{student.name}</h3>
+        <h3 className={`font-bold text-slate-800 text-lg leading-tight ${student.health_status === HealthStatus.DISMISSED ? 'text-slate-400 line-through' : ''}`}>{student.name}</h3>
         <p className="text-sm text-slate-500">{student.age} years old</p>
         <div className="flex gap-2 mt-2">
           <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${getLevelColor(student.level)}`}>
             {student.level}
           </span>
-          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${getHealthStatusColor(student.healthStatus)}`}>
-            {student.healthStatus}
+          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${getHealthStatusColor(student.health_status)}`}>
+            {student.health_status}
           </span>
         </div>
       </div>

@@ -15,7 +15,8 @@ const OfficerModal: React.FC<OfficerModalProps> = ({ onClose, onSave }) => {
     name: '',
     role: '',
     contact: '',
-    profilePic: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`
+    // Fix: Use profile_pic instead of profilePic
+    profile_pic: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -26,13 +27,15 @@ const OfficerModal: React.FC<OfficerModalProps> = ({ onClose, onSave }) => {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64 = reader.result as string;
-        setFormData(prev => ({ ...prev, profilePic: base64 }));
+        // Fix: Use profile_pic instead of profilePic
+        setFormData(prev => ({ ...prev, profile_pic: base64 }));
 
         if (isSupabaseConfigured()) {
           setIsUploading(true);
           const cloudUrl = await uploadImage(base64, 'officers', formData.name || 'new_officer');
           if (cloudUrl) {
-            setFormData(prev => ({ ...prev, profilePic: cloudUrl }));
+            // Fix: Use profile_pic instead of profilePic
+            setFormData(prev => ({ ...prev, profile_pic: cloudUrl }));
           }
           setIsUploading(false);
         }
@@ -66,7 +69,8 @@ const OfficerModal: React.FC<OfficerModalProps> = ({ onClose, onSave }) => {
           <div className="flex flex-col items-center mb-4">
             <div className="relative group">
               <img 
-                src={formData.profilePic} 
+                // Fix: Use profile_pic instead of profilePic
+                src={formData.profile_pic} 
                 className={`w-24 h-24 rounded-3xl object-cover ring-4 ring-blue-50 shadow-md ${isUploading ? 'animate-pulse opacity-50' : ''}`} 
                 alt="Preview" 
               />
