@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Coach } from '../types';
 import { uploadImage, isSupabaseConfigured } from '../supabaseClient';
@@ -11,14 +10,13 @@ interface CoachModalProps {
 const CoachModal: React.FC<CoachModalProps> = ({ onClose, onSave }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [formData, setFormData] = useState<Partial<Coach>>({
-    id: `c${Date.now()}`,
+    id: crypto.randomUUID(),
     name: '',
     email: '',
     password: '',
     specialization: '',
     age: 25,
     phone: '',
-    // Fix: Use profile_pic instead of profilePic
     profile_pic: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`
   });
 
@@ -30,16 +28,12 @@ const CoachModal: React.FC<CoachModalProps> = ({ onClose, onSave }) => {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64 = reader.result as string;
-        
-        // Optimistic local preview
-        // Fix: Use profile_pic instead of profilePic
         setFormData(prev => ({ ...prev, profile_pic: base64 }));
 
         if (isSupabaseConfigured()) {
           setIsUploading(true);
           const cloudUrl = await uploadImage(base64, 'coaches', formData.name || 'new_coach');
           if (cloudUrl) {
-            // Fix: Use profile_pic instead of profilePic
             setFormData(prev => ({ ...prev, profile_pic: cloudUrl }));
           }
           setIsUploading(false);
@@ -74,7 +68,6 @@ const CoachModal: React.FC<CoachModalProps> = ({ onClose, onSave }) => {
           <div className="flex flex-col items-center mb-4">
             <div className="relative group">
               <img 
-                // Fix: Use profile_pic instead of profilePic
                 src={formData.profile_pic} 
                 className={`w-24 h-24 rounded-full object-cover ring-4 ring-blue-50 shadow-md ${isUploading ? 'animate-pulse opacity-50' : ''}`} 
                 alt="Preview" 
@@ -94,7 +87,6 @@ const CoachModal: React.FC<CoachModalProps> = ({ onClose, onSave }) => {
               )}
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
             </div>
-            {isUploading && <p className="text-[10px] font-black text-blue-600 uppercase mt-2 animate-pulse">Uploading to Cloud...</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

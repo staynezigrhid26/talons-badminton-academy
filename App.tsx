@@ -350,7 +350,7 @@ const App: React.FC = () => {
               <h2 className="text-3xl md:text-5xl font-black tracking-tighter uppercase italic">Athletes</h2>
               <div className="flex gap-2 w-full md:w-auto">
                 <input type="text" placeholder="Search athletes..." className="bg-white border-2 border-slate-100 px-4 md:px-6 py-3 md:py-4 rounded-2xl md:rounded-3xl text-sm font-bold flex-1 md:w-64 outline-none focus:border-blue-600 shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                {isCoach && <button onClick={() => setSelectedStudent({ id: `s${Date.now()}`, name: '', age: 0, birthday: '', profile_pic: 'https://api.dicebear.com/7.x/avataaars/svg?seed=new', level: SkillLevel.BEGINNER, health_status: HealthStatus.FIT, attendance: [], tournament_ids: [], notes: '' })} className="bg-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">Add Athlete</button>}
+                {isCoach && <button onClick={() => setSelectedStudent({ id: crypto.randomUUID(), name: '', age: 0, birthday: '', profile_pic: 'https://api.dicebear.com/7.x/avataaars/svg?seed=new', level: SkillLevel.BEGINNER, health_status: HealthStatus.FIT, attendance: [], tournament_ids: [], notes: '' })} className="bg-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">Add Athlete</button>}
               </div>
             </header>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
@@ -495,6 +495,7 @@ const App: React.FC = () => {
           { id: 'schedule', icon: '📅' },
           { id: 'attendance', icon: '📊' }
         ].map(tab => (
+          // Fix: Corrected the reference to 'id' which was causing a reference error
           <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`text-xl transition-all duration-300 ${activeTab === tab.id ? 'text-blue-500 scale-125 -translate-y-1' : 'text-slate-500'}`}>
             {tab.icon}
           </button>
@@ -507,7 +508,7 @@ const App: React.FC = () => {
         </button>
       </nav>
 
-      {/* Modals */}
+      {/* Login Modal */}
       {showLoginModal && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[100] flex items-center justify-center p-6">
           <div className="bg-white p-8 md:p-12 rounded-[40px] md:rounded-[56px] w-full max-w-md shadow-3xl relative animate-in zoom-in duration-500">

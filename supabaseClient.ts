@@ -1,16 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * 🛠️ UPDATED SUPABASE SQL EDITOR SCRIPT (Simplified / Lowercase Only)
- * Run this in your Supabase SQL Editor:
+ * 🛠️ RECOMMENDED SUPABASE SQL EDITOR SCRIPT
+ * Run this in your Supabase SQL Editor to ensure type compatibility:
  * 
- * CREATE TABLE students (id TEXT PRIMARY KEY, name TEXT, age INT, birthday DATE, profile_pic TEXT, level TEXT, health_status TEXT, attendance JSONB DEFAULT '[]'::jsonb, tournament_ids JSONB DEFAULT '[]'::jsonb, notes TEXT);
- * CREATE TABLE coaches (id TEXT PRIMARY KEY, name TEXT, email TEXT UNIQUE, password TEXT, specialization TEXT, profile_pic TEXT, age INT, phone TEXT);
- * CREATE TABLE officers (id TEXT PRIMARY KEY, name TEXT, role TEXT, profile_pic TEXT, contact TEXT);
- * CREATE TABLE tournaments (id TEXT PRIMARY KEY, name TEXT, date DATE, location TEXT, categories JSONB DEFAULT '[]'::jsonb, description TEXT);
- * CREATE TABLE announcements (id TEXT PRIMARY KEY, title TEXT, content TEXT, date DATE, author TEXT);
- * CREATE TABLE daily_plans (id TEXT PRIMARY KEY, date DATE, start_time TEXT, end_time TEXT, total_duration TEXT, title TEXT, exercises JSONB DEFAULT '[]'::jsonb, notes TEXT);
- * CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT, date DATE, start_time TEXT, end_time TEXT, focus TEXT, type TEXT, target_levels JSONB DEFAULT '[]'::jsonb);
+ * CREATE TABLE students (id UUID PRIMARY KEY, name TEXT, age INT, birthday DATE, profile_pic TEXT, level TEXT, health_status TEXT, attendance JSONB DEFAULT '[]'::jsonb, tournament_ids JSONB DEFAULT '[]'::jsonb, notes TEXT);
+ * CREATE TABLE coaches (id UUID PRIMARY KEY, name TEXT, email TEXT UNIQUE, password TEXT, specialization TEXT, profile_pic TEXT, age INT, phone TEXT);
+ * CREATE TABLE officers (id UUID PRIMARY KEY, name TEXT, role TEXT, profile_pic TEXT, contact TEXT);
+ * CREATE TABLE tournaments (id UUID PRIMARY KEY, name TEXT, date DATE, location TEXT, categories JSONB DEFAULT '[]'::jsonb, description TEXT);
+ * CREATE TABLE announcements (id UUID PRIMARY KEY, title TEXT, content TEXT, date DATE, author TEXT);
+ * CREATE TABLE daily_plans (id UUID PRIMARY KEY, date DATE, start_time TEXT, end_time TEXT, total_duration TEXT, title TEXT, exercises JSONB DEFAULT '[]'::jsonb, notes TEXT);
+ * CREATE TABLE sessions (id UUID PRIMARY KEY, title TEXT, date DATE, start_time TEXT, end_time TEXT, focus TEXT, type TEXT, target_levels JSONB DEFAULT '[]'::jsonb);
  * CREATE TABLE academy_settings (id TEXT PRIMARY KEY, name TEXT, logo_url TEXT, banner_url TEXT);
  * 
  * ALTER TABLE students DISABLE ROW LEVEL SECURITY;
@@ -21,8 +21,6 @@ import { createClient } from '@supabase/supabase-js';
  * ALTER TABLE daily_plans DISABLE ROW LEVEL SECURITY;
  * ALTER TABLE sessions DISABLE ROW LEVEL SECURITY;
  * ALTER TABLE academy_settings DISABLE ROW LEVEL SECURITY;
- * 
- * IMPORTANT: Create a Public Storage Bucket named 'academy-assets'.
  */
 
 const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
@@ -82,7 +80,6 @@ export const uploadImage = async (fileBase64: string, folder: string, fileName: 
     const base64Parts = fileBase64.split(',');
     const base64Data = base64Parts.length > 1 ? base64Parts[1] : base64Parts[0];
     
-    // Safety check for valid base64
     try {
       const byteCharacters = atob(base64Data);
       const byteNumbers = new Array(byteCharacters.length);

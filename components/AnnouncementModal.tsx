@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Announcement } from '../types';
 
@@ -13,7 +12,7 @@ interface AnnouncementModalProps {
 const AnnouncementModal: React.FC<AnnouncementModalProps> = ({ announcement, onClose, onSave, onDelete, isCoach }) => {
   const [isEditing, setIsEditing] = useState(!announcement.id);
   const [formData, setFormData] = useState<Partial<Announcement>>({
-    id: announcement.id || `ann${Date.now()}`,
+    id: announcement.id || crypto.randomUUID(),
     title: announcement.title || '',
     content: announcement.content || '',
     date: announcement.date || new Date().toISOString().split('T')[0],
@@ -64,9 +63,6 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({ announcement, onC
               <button type="submit" className="flex-1 bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-blue-700 transition">
                 {announcement.id ? 'Update News' : 'Publish News'}
               </button>
-              {announcement.id && isCoach && onDelete && (
-                <button type="button" onClick={() => { if(confirm("Remove this announcement?")) { onDelete(formData.id!); onClose(); } }} className="flex-1 bg-rose-50 text-rose-600 py-5 rounded-2xl font-black uppercase tracking-widest hover:bg-rose-100 transition">Delete</button>
-              )}
             </div>
           </form>
         ) : (

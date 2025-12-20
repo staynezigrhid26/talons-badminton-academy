@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Officer } from '../types';
 import { uploadImage, isSupabaseConfigured } from '../supabaseClient';
@@ -11,11 +10,10 @@ interface OfficerModalProps {
 const OfficerModal: React.FC<OfficerModalProps> = ({ onClose, onSave }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [formData, setFormData] = useState<Partial<Officer>>({
-    id: `o${Date.now()}`,
+    id: crypto.randomUUID(),
     name: '',
     role: '',
     contact: '',
-    // Fix: Use profile_pic instead of profilePic
     profile_pic: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`
   });
 
@@ -27,14 +25,12 @@ const OfficerModal: React.FC<OfficerModalProps> = ({ onClose, onSave }) => {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64 = reader.result as string;
-        // Fix: Use profile_pic instead of profilePic
         setFormData(prev => ({ ...prev, profile_pic: base64 }));
 
         if (isSupabaseConfigured()) {
           setIsUploading(true);
           const cloudUrl = await uploadImage(base64, 'officers', formData.name || 'new_officer');
           if (cloudUrl) {
-            // Fix: Use profile_pic instead of profilePic
             setFormData(prev => ({ ...prev, profile_pic: cloudUrl }));
           }
           setIsUploading(false);
@@ -69,9 +65,8 @@ const OfficerModal: React.FC<OfficerModalProps> = ({ onClose, onSave }) => {
           <div className="flex flex-col items-center mb-4">
             <div className="relative group">
               <img 
-                // Fix: Use profile_pic instead of profilePic
                 src={formData.profile_pic} 
-                className={`w-24 h-24 rounded-3xl object-cover ring-4 ring-blue-50 shadow-md ${isUploading ? 'animate-pulse opacity-50' : ''}`} 
+                className={`w-24 h-24 rounded-full object-cover ring-4 ring-blue-50 shadow-md ${isUploading ? 'animate-pulse opacity-50' : ''}`} 
                 alt="Preview" 
               />
               <label 
@@ -89,7 +84,6 @@ const OfficerModal: React.FC<OfficerModalProps> = ({ onClose, onSave }) => {
               )}
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
             </div>
-            {isUploading && <p className="text-[10px] font-black text-blue-600 uppercase mt-2 animate-pulse">Uploading to Cloud...</p>}
           </div>
 
           <div className="space-y-4">
