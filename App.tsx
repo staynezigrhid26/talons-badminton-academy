@@ -123,7 +123,6 @@ const App: React.FC = () => {
 
   const handleApplyBranding = async (name: string, logo: string | null, banner: string | null) => {
     try {
-      // Set state first for instant UI feedback
       setAcademyName(name);
       setAcademyLogo(logo);
       setAcademyBanner(banner);
@@ -138,7 +137,6 @@ const App: React.FC = () => {
         });
       }
 
-      // Sync to local storage for quick subsequent loads
       try {
         localStorage.setItem('talons_academy_name', name);
         if (logo) localStorage.setItem('talons_academy_logo', logo);
@@ -278,11 +276,10 @@ const App: React.FC = () => {
       <main className="p-4 md:p-12 max-w-6xl mx-auto min-h-screen">
         {activeTab === 'dashboard' && (
           <div className="space-y-6 md:space-y-10 animate-in fade-in duration-500">
-             {/* Hero Section */}
              <div className="relative rounded-[32px] md:rounded-[48px] overflow-hidden bg-slate-900 text-white shadow-2xl p-8 md:p-12 min-h-[220px] md:min-h-[300px] flex flex-col justify-center border-4 border-white group">
                 {academyBanner && <img src={academyBanner} className="absolute inset-0 w-full h-full object-cover opacity-50 pointer-events-none group-hover:scale-105 transition-transform duration-1000" />}
                 <div className="relative z-10 max-w-3xl">
-                  <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-tight mb-2 uppercase italic">
+                  <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-tight mb-2 uppercase italic truncate">
                     {academyName}
                   </h1>
                   <p className="text-blue-400 font-black text-[9px] md:text-xs uppercase tracking-[0.3em] mb-6">Elite Performance Center</p>
@@ -362,7 +359,92 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Attendance Tab */}
+        {activeTab === 'coaches' && (
+          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+            <header className="flex justify-between items-end px-2">
+               <h2 className="text-3xl md:text-5xl font-black tracking-tighter uppercase italic">Staff</h2>
+               {isCoach && <button onClick={() => setIsAddingCoach(true)} className="bg-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase shadow-xl">New Coach</button>}
+            </header>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+               {(coaches || []).map(c => (
+                 <div key={c.id} onClick={() => setSelectedCoach(c)} className="bg-white p-6 md:p-8 rounded-[32px] md:rounded-[40px] border border-slate-100 group cursor-pointer hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
+                    <img src={c.profile_pic} className="w-20 h-20 md:w-24 md:h-24 rounded-3xl mx-auto object-cover border-4 border-slate-50 mb-6 group-hover:scale-110 transition duration-500 shadow-sm" alt={c.name} />
+                    <div className="text-center">
+                       <h3 className="font-black text-slate-800 text-lg md:text-xl tracking-tight leading-none">{c.name}</h3>
+                       <p className="text-[9px] md:text-[10px] font-black text-blue-600 uppercase tracking-widest mt-3 bg-blue-50 px-4 py-1.5 rounded-full inline-block border border-blue-100">{c.specialization}</p>
+                    </div>
+                 </div>
+               ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'schedule' && (
+          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+            <header className="flex justify-between items-end px-2">
+               <h2 className="text-3xl md:text-5xl font-black tracking-tighter uppercase italic">Schedule</h2>
+               {isCoach && <button onClick={() => setEditingSession({})} className="bg-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase shadow-xl">Add Session</button>}
+            </header>
+            <div className="space-y-4">
+               {[...(sessions || [])].sort((a,b) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime()).map(s => (
+                 <div key={s.id} onClick={() => isCoach && setEditingSession(s)} className="bg-white p-6 md:p-8 rounded-[32px] md:rounded-[40px] border border-slate-100 flex flex-col sm:flex-row sm:items-center gap-4 md:gap-6 group cursor-pointer hover:shadow-xl transition-all">
+                    <div className="w-14 h-14 md:w-16 md:h-16 bg-blue-600 rounded-2xl flex flex-col items-center justify-center text-white shrink-0 shadow-lg">
+                       <span className="text-[8px] md:text-[9px] font-black uppercase leading-none opacity-80">{new Date(s.date || '').toLocaleString('default', { month: 'short' })}</span>
+                       <span className="text-lg md:text-xl font-black leading-none mt-1">{new Date(s.date || '').getDate()}</span>
+                    </div>
+                    <div className="flex-1">
+                       <div className="flex items-center gap-3 mb-1"><h3 className="font-black text-lg md:text-xl text-slate-800 uppercase tracking-tight">{s.title}</h3><span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ${s.type === 'Special' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>{s.type}</span></div>
+                       <p className="text-slate-500 font-bold text-sm">{s.start_time} - {s.end_time} • <span className="text-slate-400 font-medium italic">{s.focus}</span></p>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">{(s.target_levels || []).map(lvl => <span key={lvl} className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-slate-400 border border-slate-100 px-2.5 py-1 rounded-full">{lvl}</span>)}</div>
+                 </div>
+               ))}
+               {(sessions || []).length === 0 && <div className="p-12 text-center text-slate-300 font-black uppercase tracking-[0.2em] bg-white rounded-[40px] border border-dashed">No sessions scheduled</div>}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'plans' && isCoach && (
+          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+            <header className="flex justify-between items-end px-2">
+               <h2 className="text-3xl md:text-5xl font-black tracking-tighter uppercase italic">Blueprints</h2>
+               {isCoach && <button onClick={() => setEditingDailyPlan({})} className="bg-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase shadow-xl">Create Plan</button>}
+            </header>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+               {(dailyPlans || []).map(p => (
+                 <div key={p.id} onClick={() => isCoach && setEditingDailyPlan(p)} className="bg-white p-6 md:p-8 rounded-[40px] md:rounded-[48px] border border-slate-100 group cursor-pointer hover:shadow-2xl transition-all flex flex-col h-full">
+                    <div className="flex justify-between items-start mb-6"><span className="text-[8px] md:text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-4 py-1 rounded-full">{p.date}</span><span className="text-slate-400 font-black text-[9px] md:text-[10px] uppercase tracking-widest">{p.total_duration}</span></div>
+                    <h3 className="font-black text-xl md:text-2xl text-slate-800 tracking-tight mb-4 uppercase leading-tight">{p.title}</h3>
+                    <div className="space-y-2 flex-1">
+                       {(p.exercises || []).slice(0, 3).map((ex:any, i:number) => (
+                         <div key={i} className="flex items-center justify-between text-[11px] py-1.5 border-b border-slate-50 last:border-0"><span className="text-slate-600 font-bold">{ex.name}</span><span className="text-slate-400 font-medium">{ex.duration}</span></div>
+                       ))}
+                       {(p.exercises || []).length > 3 && <p className="text-[9px] text-blue-500 font-black mt-2">+ {(p.exercises || []).length - 3} more drills</p>}
+                    </div>
+                 </div>
+               ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'officers' && (
+          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+            <header className="flex justify-between items-end px-2">
+               <h2 className="text-3xl md:text-5xl font-black tracking-tighter uppercase italic">Board</h2>
+               {isCoach && <button onClick={() => setIsAddingOfficer(true)} className="bg-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase shadow-xl">Add Officer</button>}
+            </header>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8">
+               {sortedOfficers.map(off => (
+                 <div key={off.id} onClick={() => setSelectedOfficer(off)} className="bg-white p-6 md:p-8 rounded-[32px] md:rounded-[40px] border border-slate-100 text-center hover:shadow-2xl hover:-translate-y-2 transition-all group cursor-pointer">
+                    <img src={off.profile_pic} className="w-20 h-20 md:w-24 md:h-24 rounded-[32px] mx-auto object-cover border-4 border-slate-50 mb-6 group-hover:scale-110 transition duration-500 shadow-sm" alt="" />
+                    <h3 className="font-black text-slate-800 text-md md:text-lg tracking-tight leading-none">{off.name}</h3>
+                    <p className="text-[8px] md:text-[9px] font-black text-blue-600 uppercase tracking-widest mt-3 bg-blue-50 px-3 py-1.5 rounded-full inline-block border border-blue-100">{off.role}</p>
+                 </div>
+               ))}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'attendance' && (
           <div className="space-y-6">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
@@ -402,35 +484,30 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
-        
-        {/* Fallback for other tabs */}
-        {['coaches', 'schedule', 'plans', 'officers'].includes(activeTab) && (
-          <div className="py-20 text-center space-y-4">
-             <div className="text-6xl animate-bounce">🏸</div>
-             <p className="text-slate-400 font-black uppercase tracking-[0.3em] text-xs">Section Under Maintenance</p>
-             <button onClick={() => setActiveTab('dashboard')} className="text-blue-600 font-black text-[10px] uppercase border-b border-blue-600 pb-1">Return Home</button>
-          </div>
-        )}
       </main>
 
       {/* Mobile/Tablet Bottom Navigation */}
       <nav className="md:hidden fixed bottom-6 left-6 right-6 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-[32px] flex items-center justify-around py-5 z-40 shadow-2xl">
-        {['dashboard', 'students', 'coaches', 'attendance'].map(id => (
-          <button key={id} onClick={() => setActiveTab(id as any)} className={`text-xl transition-all duration-300 ${activeTab === id ? 'text-blue-500 scale-125 -translate-y-1' : 'text-slate-500 hover:text-slate-300'}`}>
-            {id === 'dashboard' ? '🏠' : id === 'students' ? '🎾' : id === 'coaches' ? '👔' : '📊'}
+        {[
+          { id: 'dashboard', icon: '🏠' },
+          { id: 'students', icon: '🎾' },
+          { id: 'coaches', icon: '👔' },
+          { id: 'schedule', icon: '📅' },
+          { id: 'attendance', icon: '📊' }
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`text-xl transition-all duration-300 ${activeTab === tab.id ? 'text-blue-500 scale-125 -translate-y-1' : 'text-slate-500'}`}>
+            {tab.icon}
           </button>
         ))}
-        {/* Universal Portal Access on Mobile/Tablet */}
         <button 
           onClick={() => user.isLoggedIn ? setUser({isLoggedIn: false, role: 'student', profile: null}) : setShowLoginModal(true)} 
-          className={`text-xl transition-all duration-300 ${user.isLoggedIn ? 'text-emerald-500' : 'text-slate-500 hover:text-white'}`}
-          title={user.isLoggedIn ? "Logout" : "Coach Login"}
+          className={`text-xl transition-all duration-300 ${user.isLoggedIn ? 'text-emerald-500' : 'text-slate-500'}`}
         >
           {user.isLoggedIn ? '👤' : '🔒'}
         </button>
       </nav>
 
-      {/* Login Modal */}
+      {/* Modals */}
       {showLoginModal && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[100] flex items-center justify-center p-6">
           <div className="bg-white p-8 md:p-12 rounded-[40px] md:rounded-[56px] w-full max-w-md shadow-3xl relative animate-in zoom-in duration-500">
@@ -449,12 +526,16 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Other Components / Modals */}
       {showBrandingModal && <BrandingModal currentName={academyName} currentLogo={academyLogo} currentBanner={academyBanner} onClose={() => setShowBrandingModal(false)} onSave={handleApplyBranding} />}
       {selectedStudent && <StudentDetail student={selectedStudent} tournaments={tournaments} onClose={() => setSelectedStudent(null)} onUpdate={updateStudent} role={user.role} isLoggedIn={user.isLoggedIn} onDelete={(id) => handleDeleteRecord('students', id, setStudents)} />}
       {selectedCoach && <CoachDetail coach={selectedCoach} canEdit={isCoach} onClose={() => setSelectedCoach(null)} onUpdate={updateCoach} onDelete={(id) => handleDeleteRecord('coaches', id, setCoaches)} />}
+      {isAddingCoach && <CoachModal onClose={() => setIsAddingCoach(false)} onSave={(c) => { updateCoach(c); setIsAddingCoach(false); }} />}
+      {selectedOfficer && <OfficerDetail officer={selectedOfficer} onClose={() => setSelectedOfficer(null)} canEdit={isCoach} onUpdate={updateOfficer} onDelete={(id) => handleDeleteRecord('officers', id, setOfficers)} />}
+      {isAddingOfficer && <OfficerModal onClose={() => setIsAddingOfficer(false)} onSave={(o) => { updateOfficer(o); setIsAddingOfficer(false); }} />}
       {editingTournament && <TournamentModal tournament={editingTournament} onClose={() => setEditingTournament(null)} isCoach={isCoach} onSave={(t) => handleUpdateRecord('tournaments', t, setTournaments).then(() => setEditingTournament(null))} onDelete={(id) => handleDeleteRecord('tournaments', id, setTournaments)} />}
       {editingAnnouncement && <AnnouncementModal announcement={editingAnnouncement} onClose={() => setEditingAnnouncement(null)} onSave={(a) => handleUpdateRecord('announcements', a, setAnnouncements).then(() => setEditingAnnouncement(null))} onDelete={(id) => handleDeleteRecord('announcements', id, setAnnouncements)} isCoach={isCoach} />}
+      {editingDailyPlan && <DailyPlanModal plan={editingDailyPlan} onClose={() => setEditingDailyPlan(null)} onSave={(p) => handleUpdateRecord('daily_plans', p, setDailyPlans).then(() => setEditingDailyPlan(null))} />}
+      {editingSession && <SessionModal session={editingSession} onClose={() => setEditingSession(null)} onSave={(s) => handleUpdateRecord('sessions', s, setSessions).then(() => setEditingSession(null))} />}
     </div>
   );
 };
