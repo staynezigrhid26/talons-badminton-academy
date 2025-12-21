@@ -23,7 +23,7 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState('');
 
   // Branding State
-  const [academyName, setAcademyName] = useState('TALONS ACADEMY');
+  const [academyName, setAcademyName] = useState('TALONS Dumaguete Badminton Academy');
   const [academyLogo, setAcademyLogo] = useState<string | null>(null);
   const [academyBanner, setAcademyBanner] = useState<string | null>(null);
   const [showBrandingModal, setShowBrandingModal] = useState(false);
@@ -81,7 +81,7 @@ const App: React.FC = () => {
 
           if (dbSettings && dbSettings.length > 0) {
             const settings = dbSettings[0];
-            setAcademyName(settings.name || 'TALONS ACADEMY');
+            setAcademyName(settings.name || 'TALONS Dumaguete Badminton Academy');
             setAcademyLogo(settings.logo_url || null);
             setAcademyBanner(settings.banner_url || null);
           } else {
@@ -98,7 +98,7 @@ const App: React.FC = () => {
     };
 
     const loadIdentityFromLocal = () => {
-      setAcademyName(localStorage.getItem('talons_academy_name') || 'TALONS ACADEMY');
+      setAcademyName(localStorage.getItem('talons_academy_name') || 'TALONS Dumaguete Badminton Academy');
       setAcademyLogo(localStorage.getItem('talons_academy_logo'));
       setAcademyBanner(localStorage.getItem('talons_academy_banner'));
     };
@@ -228,7 +228,7 @@ const App: React.FC = () => {
             {academyLogo ? <img src={academyLogo} className="w-full h-full object-cover" /> : academyName.charAt(0)}
           </div>
           <div className="flex-1 overflow-hidden">
-            <h1 className="text-sm font-black truncate uppercase tracking-tight">{academyName}</h1>
+            <h1 className="text-sm font-black truncate uppercase tracking-tight leading-tight">{academyName}</h1>
             <p className="text-[8px] text-blue-400 font-black uppercase tracking-widest mt-1">Management Pro</p>
           </div>
           {isCoach && (
@@ -276,27 +276,28 @@ const App: React.FC = () => {
       <main className="p-4 md:p-12 max-w-6xl mx-auto min-h-screen">
         {activeTab === 'dashboard' && (
           <div className="space-y-6 md:space-y-10 animate-in fade-in duration-500">
-             <div className="relative rounded-[32px] md:rounded-[48px] overflow-hidden bg-slate-900 text-white shadow-2xl p-8 md:p-12 min-h-[220px] md:min-h-[300px] flex flex-col justify-center border-4 border-white group">
-                {academyBanner && <img src={academyBanner} className="absolute inset-0 w-full h-full object-cover opacity-50 pointer-events-none group-hover:scale-105 transition-transform duration-1000" />}
+             <div className="relative rounded-[32px] md:rounded-[48px] overflow-hidden bg-slate-900 text-white shadow-2xl p-6 md:p-10 min-h-[180px] md:min-h-[260px] flex flex-col justify-end border-4 border-white group">
+                {academyBanner && <img src={academyBanner} className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none group-hover:scale-105 transition-transform duration-1000" />}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
                 <div className="relative z-10 max-w-3xl">
-                  <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-tight mb-2 uppercase italic truncate">
+                  {/* Reduced font size for better presentation and ensures name doesn't cover the entire banner */}
+                  <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-black tracking-tight leading-none mb-4 uppercase italic break-words max-w-[90%] drop-shadow-lg">
                     {academyName}
                   </h1>
-                  <p className="text-blue-400 font-black text-[9px] md:text-xs uppercase tracking-[0.3em] mb-6">Elite Performance Center</p>
                   
-                  <div className="flex flex-wrap gap-2 md:gap-4 items-center">
+                  <div className="flex flex-wrap gap-2 md:gap-3 items-center">
                     {isCoach ? (
                       <>
-                        <button onClick={handleManualSync} disabled={isSyncing} className="bg-emerald-600 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl font-black text-[8px] md:text-[10px] uppercase shadow-xl flex items-center gap-2">
+                        <button onClick={handleManualSync} disabled={isSyncing} className="bg-emerald-600 px-4 py-2 rounded-xl font-black text-[8px] md:text-[9px] uppercase shadow-xl flex items-center gap-2">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>Sync Cloud
                         </button>
-                        <button onClick={() => setShowBrandingModal(true)} className="bg-white/10 backdrop-blur-md border border-white/20 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl font-black text-[8px] md:text-[10px] uppercase shadow-xl hover:bg-white/20 transition-all flex items-center gap-2">
+                        <button onClick={() => setShowBrandingModal(true)} className="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2 rounded-xl font-black text-[8px] md:text-[9px] uppercase shadow-xl hover:bg-white/20 transition-all flex items-center gap-2">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                           Identity
                         </button>
                       </>
                     ) : (
-                      <button onClick={() => setShowLoginModal(true)} className="md:hidden bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-xl flex items-center gap-2 transition-all">
+                      <button onClick={() => setShowLoginModal(true)} className="md:hidden bg-blue-600 hover:bg-blue-700 px-5 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-xl flex items-center gap-2 transition-all">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
                         Coach Login
                       </button>

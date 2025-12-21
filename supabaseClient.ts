@@ -2,9 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 
 /**
  * 🛠️ FIX FOR "COLUMN NOT FOUND" ERRORS
- * If you get an error saying a column like 'categories' is missing, run this:
+ * If you get an error saying a column is missing, run these specifically:
  * 
  * ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS categories JSONB DEFAULT '[]'::jsonb;
+ * ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS description TEXT;
  * ALTER TABLE students ADD COLUMN IF NOT EXISTS tournament_ids JSONB DEFAULT '[]'::jsonb;
  * ALTER TABLE daily_plans ADD COLUMN IF NOT EXISTS exercises JSONB DEFAULT '[]'::jsonb;
  * ALTER TABLE sessions ADD COLUMN IF NOT EXISTS target_levels JSONB DEFAULT '[]'::jsonb;
