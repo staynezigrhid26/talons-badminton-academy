@@ -1,9 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * 🛠️ RECOMMENDED SUPABASE SQL EDITOR SCRIPT
- * Run this in your Supabase SQL Editor to ensure type compatibility:
+ * 🛠️ FIX FOR "COLUMN NOT FOUND" ERRORS
+ * If you get an error saying a column like 'categories' is missing, run this:
  * 
+ * ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS categories JSONB DEFAULT '[]'::jsonb;
+ * ALTER TABLE students ADD COLUMN IF NOT EXISTS tournament_ids JSONB DEFAULT '[]'::jsonb;
+ * ALTER TABLE daily_plans ADD COLUMN IF NOT EXISTS exercises JSONB DEFAULT '[]'::jsonb;
+ * ALTER TABLE sessions ADD COLUMN IF NOT EXISTS target_levels JSONB DEFAULT '[]'::jsonb;
+ * 
+ * 🛠️ FULL INITIAL SCHEMA
  * CREATE TABLE students (id UUID PRIMARY KEY, name TEXT, age INT, birthday DATE, profile_pic TEXT, level TEXT, health_status TEXT, attendance JSONB DEFAULT '[]'::jsonb, tournament_ids JSONB DEFAULT '[]'::jsonb, notes TEXT);
  * CREATE TABLE coaches (id UUID PRIMARY KEY, name TEXT, email TEXT UNIQUE, password TEXT, specialization TEXT, profile_pic TEXT, age INT, phone TEXT);
  * CREATE TABLE officers (id UUID PRIMARY KEY, name TEXT, role TEXT, profile_pic TEXT, contact TEXT);

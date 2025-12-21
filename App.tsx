@@ -495,7 +495,6 @@ const App: React.FC = () => {
           { id: 'schedule', icon: '📅' },
           { id: 'attendance', icon: '📊' }
         ].map(tab => (
-          // Fix: Corrected the reference to 'id' which was causing a reference error
           <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`text-xl transition-all duration-300 ${activeTab === tab.id ? 'text-blue-500 scale-125 -translate-y-1' : 'text-slate-500'}`}>
             {tab.icon}
           </button>
@@ -535,8 +534,8 @@ const App: React.FC = () => {
       {isAddingOfficer && <OfficerModal onClose={() => setIsAddingOfficer(false)} onSave={(o) => { updateOfficer(o); setIsAddingOfficer(false); }} />}
       {editingTournament && <TournamentModal tournament={editingTournament} onClose={() => setEditingTournament(null)} isCoach={isCoach} onSave={(t) => handleUpdateRecord('tournaments', t, setTournaments).then(() => setEditingTournament(null))} onDelete={(id) => handleDeleteRecord('tournaments', id, setTournaments)} />}
       {editingAnnouncement && <AnnouncementModal announcement={editingAnnouncement} onClose={() => setEditingAnnouncement(null)} onSave={(a) => handleUpdateRecord('announcements', a, setAnnouncements).then(() => setEditingAnnouncement(null))} onDelete={(id) => handleDeleteRecord('announcements', id, setAnnouncements)} isCoach={isCoach} />}
-      {editingDailyPlan && <DailyPlanModal plan={editingDailyPlan} onClose={() => setEditingDailyPlan(null)} onSave={(p) => handleUpdateRecord('daily_plans', p, setDailyPlans).then(() => setEditingDailyPlan(null))} />}
-      {editingSession && <SessionModal session={editingSession} onClose={() => setEditingSession(null)} onSave={(s) => handleUpdateRecord('sessions', s, setSessions).then(() => setEditingSession(null))} />}
+      {editingDailyPlan && <DailyPlanModal plan={editingDailyPlan} onClose={() => setEditingDailyPlan(null)} onSave={(p) => handleUpdateRecord('daily_plans', p, setDailyPlans).then(() => setEditingDailyPlan(null))} onDelete={(id) => handleDeleteRecord('daily_plans', id, setDailyPlans)} isCoach={isCoach} />}
+      {editingSession && <SessionModal session={editingSession} onClose={() => setEditingSession(null)} onSave={(s) => handleUpdateRecord('sessions', s, setSessions).then(() => setEditingSession(null))} onDelete={(id) => handleDeleteRecord('sessions', id, setSessions)} isCoach={isCoach} />}
     </div>
   );
 };
