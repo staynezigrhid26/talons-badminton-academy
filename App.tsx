@@ -533,21 +533,28 @@ const App: React.FC = () => {
       </main>
 
       {/* Mobile/Tablet Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-6 left-6 right-6 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-[32px] flex items-center justify-around py-5 z-40 shadow-2xl">
-        {[
-          { id: 'dashboard', icon: '🏠' },
-          { id: 'students', icon: '🎾' },
-          { id: 'coaches', icon: '👔' },
-          { id: 'schedule', icon: '📅' },
-          { id: 'attendance', icon: '📊' }
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`text-xl transition-all duration-300 ${activeTab === tab.id ? 'text-blue-500 scale-125 -translate-y-1' : 'text-slate-500'}`}>
-            {tab.icon}
-          </button>
-        ))}
+      <nav className="md:hidden fixed bottom-6 left-4 right-4 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-[32px] flex items-center justify-around py-4 z-40 shadow-2xl px-2">
+        <div className="flex-1 flex items-center justify-around gap-1 overflow-x-auto no-scrollbar py-1">
+          {[
+            { id: 'dashboard', icon: '🏠' },
+            { id: 'students', icon: '🎾' },
+            { id: 'coaches', icon: '👔' },
+            { id: 'schedule', icon: '📅' },
+            { id: 'attendance', icon: '📊' },
+            { id: 'officers', icon: '👥' },
+            { id: 'plans', icon: '📋' }
+          ]
+          .filter(tab => tab.id !== 'plans' || isCoach)
+          .map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`text-xl p-1.5 transition-all duration-300 shrink-0 ${activeTab === tab.id ? 'text-blue-500 scale-125 -translate-y-1 bg-white/5 rounded-xl' : 'text-slate-500'}`}>
+              {tab.icon}
+            </button>
+          ))}
+        </div>
+        <div className="w-px h-6 bg-white/10 mx-2 shrink-0"></div>
         <button 
           onClick={() => user.isLoggedIn ? setUser({isLoggedIn: false, role: 'student', profile: null}) : setShowLoginModal(true)} 
-          className={`text-xl transition-all duration-300 ${user.isLoggedIn ? 'text-emerald-500' : 'text-slate-500'}`}
+          className={`text-xl p-1.5 transition-all duration-300 shrink-0 ${user.isLoggedIn ? 'text-emerald-500' : 'text-slate-500'}`}
         >
           {user.isLoggedIn ? '👤' : '🔒'}
         </button>
