@@ -57,6 +57,19 @@ const App: React.FC = () => {
     return [...(officers || [])].sort((a, b) => (rankMap[a.role] || 99) - (rankMap[b.role] || 99));
   }, [officers]);
 
+  // Sync favicon with academy logo
+  useEffect(() => {
+    const favicon = document.getElementById('dynamic-favicon') as HTMLLinkElement;
+    if (favicon) {
+      if (academyLogo) {
+        favicon.href = academyLogo;
+      } else {
+        // Fallback to emoji if no logo is set
+        favicon.href = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎾</text></svg>";
+      }
+    }
+  }, [academyLogo]);
+
   useEffect(() => {
     const fetchEverything = async () => {
       setLoading(true);
@@ -212,6 +225,34 @@ const App: React.FC = () => {
     setIsSyncing(false);
   };
 
+  // Helper to get tournament date display string
+  const getTournamentDateString = (tour: Tournament) => {
+    if (!tour.schedule || tour.schedule.length === 0) {
+      const d = new Date(tour.date);
+      return { month: d.toLocaleString('default', { month: 'short' }), day: d.getDate() };
+    }
+    
+    if (tour.schedule.length === 1) {
+      const d = new Date(tour.schedule[0].date);
+      return { month: d.toLocaleString('default', { month: 'short' }), day: d.getDate() };
+    }
+
+    const start = new Date(tour.schedule[0].date);
+    const end = new Date(tour.schedule[tour.schedule.length - 1].date);
+    
+    if (start.getMonth() === end.getMonth()) {
+       return { 
+         month: start.toLocaleString('default', { month: 'short' }), 
+         day: `${start.getDate()} - ${end.getDate()}` 
+       };
+    }
+    
+    return { 
+      month: `${start.toLocaleString('default', { month: 'short' })} - ${end.toLocaleString('default', { month: 'short' })}`, 
+      day: `${start.getDate()}...` 
+    };
+  };
+
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-slate-900 gap-4">
       <div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
@@ -276,20 +317,21 @@ const App: React.FC = () => {
       <main className="p-4 md:p-12 max-w-6xl mx-auto min-h-screen">
         {activeTab === 'dashboard' && (
           <div className="space-y-6 md:space-y-10 animate-in fade-in duration-500">
-             <div className="relative rounded-[32px] md:rounded-[48px] overflow-hidden bg-slate-900 text-white shadow-2xl p-6 md:p-10 min-h-[180px] md:min-h-[260px] flex flex-col justify-end border-4 border-white group">
-                {academyBanner && <img src={academyBanner} className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none group-hover:scale-105 transition-transform duration-1000" />}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
-                <div className="relative z-10 max-w-3xl">
-                  {/* Reduced font size for better presentation and ensures name doesn't cover the entire banner */}
-                  <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-black tracking-tight leading-none mb-4 uppercase italic break-words max-w-[90%] drop-shadow-lg">
-                    {academyName}
-                  </h1>
+             <div className="relative rounded-[32px] md:rounded-[48px] overflow-hidden bg-slate-900 text-white shadow-2xl p-4 md:p-8 min-h-[160px] md:min-h-[220px] flex flex-col justify-end border-4 border-white group">
+                {academyBanner && <img src={academyBanner} className="absolute inset-0 w-full h-full object-cover opacity-70 pointer-events-none group-hover:scale-105 transition-transform duration-1000" />}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
+                <div className="relative z-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                  <div className="bg-black/40 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/10 max-w-[85%] md:max-w-[70%]">
+                    <h1 className="text-sm sm:text-base md:text-xl font-black tracking-tight leading-none uppercase italic break-words">
+                      {academyName}
+                    </h1>
+                  </div>
                   
-                  <div className="flex flex-wrap gap-2 md:gap-3 items-center">
+                  <div className="flex flex-wrap gap-2 items-center">
                     {isCoach ? (
                       <>
-                        <button onClick={handleManualSync} disabled={isSyncing} className="bg-emerald-600 px-4 py-2 rounded-xl font-black text-[8px] md:text-[9px] uppercase shadow-xl flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>Sync Cloud
+                        <button onClick={handleManualSync} disabled={isSyncing} className="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-xl font-black text-[8px] md:text-[9px] uppercase shadow-xl flex items-center gap-2 transition-all">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>Sync
                         </button>
                         <button onClick={() => setShowBrandingModal(true)} className="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2 rounded-xl font-black text-[8px] md:text-[9px] uppercase shadow-xl hover:bg-white/20 transition-all flex items-center gap-2">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
@@ -297,9 +339,9 @@ const App: React.FC = () => {
                         </button>
                       </>
                     ) : (
-                      <button onClick={() => setShowLoginModal(true)} className="md:hidden bg-blue-600 hover:bg-blue-700 px-5 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-xl flex items-center gap-2 transition-all">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
-                        Coach Login
+                      <button onClick={() => setShowLoginModal(true)} className="md:hidden bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl font-black text-[9px] uppercase shadow-xl flex items-center gap-2 transition-all">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
+                        Login
                       </button>
                     )}
                   </div>
@@ -313,18 +355,21 @@ const App: React.FC = () => {
                       {isCoach && <button onClick={() => setEditingTournament({})} className="bg-blue-600 text-white w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg hover:rotate-90 transition-all">+</button>}
                    </div>
                    <div className="space-y-4">
-                      {tournaments.slice(0, 3).map(t => (
-                        <div key={t.id} onClick={() => setEditingTournament(t)} className="p-4 md:p-5 bg-slate-50 rounded-[24px] border border-slate-100 flex items-center gap-4 md:gap-5 hover:border-blue-200 transition-all cursor-pointer group">
-                           <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl shadow-sm flex flex-col items-center justify-center shrink-0 border border-slate-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                              <p className="text-[8px] md:text-[10px] font-black uppercase leading-none">{new Date(t.date).toLocaleString('default', { month: 'short' })}</p>
-                              <p className="text-xl md:text-2xl font-black leading-none mt-1">{new Date(t.date).getDate()}</p>
-                           </div>
-                           <div className="flex-1 overflow-hidden">
-                              <h3 className="font-black text-slate-800 tracking-tight text-md md:text-lg leading-none truncate group-hover:text-blue-600">{t.name}</h3>
-                              <p className="text-[8px] md:text-[10px] text-slate-400 uppercase font-black tracking-widest mt-2">{t.location}</p>
-                           </div>
-                        </div>
-                      ))}
+                      {tournaments.slice(0, 3).map(t => {
+                        const dateDisplay = getTournamentDateString(t);
+                        return (
+                          <div key={t.id} onClick={() => setEditingTournament(t)} className="p-4 md:p-5 bg-slate-50 rounded-[24px] border border-slate-100 flex items-center gap-4 md:gap-5 hover:border-blue-200 transition-all cursor-pointer group">
+                             <div className="w-12 h-12 md:w-16 md:h-16 bg-white rounded-xl md:rounded-2xl shadow-sm flex flex-col items-center justify-center shrink-0 border border-slate-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                <p className="text-[7px] md:text-[8px] font-black uppercase leading-none text-center">{dateDisplay.month}</p>
+                                <p className={`font-black leading-none mt-1 ${typeof dateDisplay.day === 'string' && dateDisplay.day.includes('-') ? 'text-xs md:text-sm' : 'text-xl md:text-2xl'}`}>{dateDisplay.day}</p>
+                             </div>
+                             <div className="flex-1 overflow-hidden">
+                                <h3 className="font-black text-slate-800 tracking-tight text-md md:text-lg leading-none truncate group-hover:text-blue-600">{t.name}</h3>
+                                <p className="text-[8px] md:text-[10px] text-slate-400 uppercase font-black tracking-widest mt-2">{t.location}</p>
+                             </div>
+                          </div>
+                        );
+                      })}
                    </div>
                 </section>
                 <section className="bg-white p-6 md:p-8 rounded-[32px] md:rounded-[40px] border border-slate-200 shadow-sm flex flex-col">

@@ -54,13 +54,19 @@ export interface MonthlyProgram {
   goals: string[];
 }
 
+export interface TournamentDay {
+  date: string;
+  categories: string[];
+}
+
 export interface Tournament {
   id: string;
   name: string;
-  date: string;
+  date: string; // Primary start date
   location: string;
-  categories: string[];
+  categories: string[]; // Flat list (combined categories for summary)
   description?: string;
+  schedule?: TournamentDay[]; // New multi-day schedule
 }
 
 export interface Announcement {

@@ -1,25 +1,30 @@
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * 🛠️ FIX FOR "COLUMN NOT FOUND" ERRORS
- * If you get an error saying a column is missing, run these specifically:
+ * ⚠️ CRITICAL: FIX FOR "COLUMN NOT FOUND" ERRORS
+ * If saving tournaments fails, you MUST run this in your Supabase SQL Editor:
  * 
- * ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS categories JSONB DEFAULT '[]'::jsonb;
+ * -- 1. Add missing schedule and description columns to tournaments
  * ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS description TEXT;
+ * ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS schedule JSONB DEFAULT '[]'::jsonb;
+ * 
+ * -- 2. Ensure categories and other JSON columns exist
+ * ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS categories JSONB DEFAULT '[]'::jsonb;
  * ALTER TABLE students ADD COLUMN IF NOT EXISTS tournament_ids JSONB DEFAULT '[]'::jsonb;
  * ALTER TABLE daily_plans ADD COLUMN IF NOT EXISTS exercises JSONB DEFAULT '[]'::jsonb;
  * ALTER TABLE sessions ADD COLUMN IF NOT EXISTS target_levels JSONB DEFAULT '[]'::jsonb;
  * 
- * 🛠️ FULL INITIAL SCHEMA
+ * 🛠️ FULL INITIAL SCHEMA (Recommended for first-time setup)
  * CREATE TABLE students (id UUID PRIMARY KEY, name TEXT, age INT, birthday DATE, profile_pic TEXT, level TEXT, health_status TEXT, attendance JSONB DEFAULT '[]'::jsonb, tournament_ids JSONB DEFAULT '[]'::jsonb, notes TEXT);
  * CREATE TABLE coaches (id UUID PRIMARY KEY, name TEXT, email TEXT UNIQUE, password TEXT, specialization TEXT, profile_pic TEXT, age INT, phone TEXT);
  * CREATE TABLE officers (id UUID PRIMARY KEY, name TEXT, role TEXT, profile_pic TEXT, contact TEXT);
- * CREATE TABLE tournaments (id UUID PRIMARY KEY, name TEXT, date DATE, location TEXT, categories JSONB DEFAULT '[]'::jsonb, description TEXT);
+ * CREATE TABLE tournaments (id UUID PRIMARY KEY, name TEXT, date DATE, location TEXT, categories JSONB DEFAULT '[]'::jsonb, description TEXT, schedule JSONB DEFAULT '[]'::jsonb);
  * CREATE TABLE announcements (id UUID PRIMARY KEY, title TEXT, content TEXT, date DATE, author TEXT);
  * CREATE TABLE daily_plans (id UUID PRIMARY KEY, date DATE, start_time TEXT, end_time TEXT, total_duration TEXT, title TEXT, exercises JSONB DEFAULT '[]'::jsonb, notes TEXT);
  * CREATE TABLE sessions (id UUID PRIMARY KEY, title TEXT, date DATE, start_time TEXT, end_time TEXT, focus TEXT, type TEXT, target_levels JSONB DEFAULT '[]'::jsonb);
  * CREATE TABLE academy_settings (id TEXT PRIMARY KEY, name TEXT, logo_url TEXT, banner_url TEXT);
  * 
+ * -- DISABLE RLS FOR EASY ACCESS
  * ALTER TABLE students DISABLE ROW LEVEL SECURITY;
  * ALTER TABLE coaches DISABLE ROW LEVEL SECURITY;
  * ALTER TABLE officers DISABLE ROW LEVEL SECURITY;
